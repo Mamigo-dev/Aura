@@ -12,7 +12,7 @@ import type { LevelAssessment, EnglishLevel, WeakArea } from '../types/user'
 // Types
 // ---------------------------------------------------------------------------
 
-type OnboardingStep = 'welcome' | 'assessment' | 'categories'
+type OnboardingStep = 'welcome' | 'assessment' | 'results' | 'categories'
 
 // ---------------------------------------------------------------------------
 // Helpers – client-side scoring
@@ -319,6 +319,133 @@ function LevelAssessmentStep({
 }
 
 // ---------------------------------------------------------------------------
+// Assessment Results
+// ---------------------------------------------------------------------------
+
+const LEVEL_DESCRIPTIONS: Record<string, string> = {
+  A1: 'Beginner - You can understand basic phrases and introduce yourself.',
+  A2: 'Elementary - You can handle routine tasks and describe your background.',
+  B1: 'Intermediate - You can deal with most travel situations and describe experiences.',
+  B2: 'Upper Intermediate - You can interact fluently and produce detailed text.',
+  C1: 'Advanced - You can express ideas flexibly and effectively for professional use.',
+  C2: 'Proficiency - You can understand virtually everything and express yourself spontaneously.',
+}
+
+const SCORE_LABELS: Record<keyof LevelAssessment['scores'], string> = {
+  technicalVocab: 'Technical Vocabulary',
+  dailyExpressions: 'Daily Expressions',
+  grammar: 'Grammar',
+  idioms: 'Idioms & Phrases',
+  comprehension: 'Comprehension',
+  vocabulary: 'Overall Vocabulary',
+}
+
+const WEAK_AREA_LABELS: Record<WeakArea, string> = {
+  daily_expressions: 'Daily Expressions',
+  grammar: 'Grammar',
+  idioms: 'Idioms & Phrases',
+  vocabulary: 'Vocabulary',
+  listening: 'Comprehension',
+  pronunciation: 'Pronunciation',
+  public_speaking: 'Public Speaking',
+  writing: 'Writing',
+}
+
+function AssessmentResults({
+  assessment,
+  onContinue,
+}: {
+  assessment: LevelAssessment
+  onContinue: () => void
+}) {
+  const scoreEntries = Object.entries(assessment.scores) as [keyof LevelAssessment['scores'], number][]
+
+  return (
+    <div className="flex flex-col items-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full py-12">
+      {/* Level Badge */}
+      <div className="animate-fade-in-up flex flex-col items-center mb-10">
+        <div className="w-28 h-28 rounded-full gradient-aurora flex items-center justify-center mb-4 shadow-lg shadow-aura-purple/30">
+          <span className="text-5xl font-bold text-white">{assessment.assignedLevel}</span>
+        </div>
+        <h2 className="text-2xl font-bold text-aura-text mb-1">Your Level</h2>
+        <p className="text-aura-text-dim text-center max-w-sm">
+          {LEVEL_DESCRIPTIONS[assessment.assignedLevel] || ''}
+        </p>
+      </div>
+
+      {/* Score Breakdown */}
+      <Card variant="glass" padding="lg" className="w-full mb-6 animate-fade-in-up">
+        <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-4">
+          Score Breakdown
+        </h3>
+        <div className="space-y-4">
+          {scoreEntries.map(([key, value]) => (
+            <div key={key}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm text-aura-text">{SCORE_LABELS[key]}</span>
+                <span className={`text-sm font-semibold ${
+                  value >= 80 ? 'text-aura-success' : value >= 50 ? 'text-aura-gold' : 'text-aura-error'
+                }`}>
+                  {value}%
+                </span>
+              </div>
+              <div className="h-2 bg-aura-surface rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                    value >= 80 ? 'bg-aura-success' : value >= 50 ? 'bg-aura-gold' : 'bg-aura-error'
+                  }`}
+                  style={{ width: `${value}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Weak Areas */}
+      {assessment.weakAreas.length > 0 && (
+        <Card variant="glass" padding="lg" className="w-full mb-6 animate-fade-in-up">
+          <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-3">
+            Areas to Improve
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {assessment.weakAreas.map((area) => (
+              <span
+                key={area}
+                className="px-3 py-1.5 rounded-lg bg-aura-error/10 text-aura-error text-sm font-medium border border-aura-error/20"
+              >
+                {WEAK_AREA_LABELS[area] || area}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Recommendations */}
+      {assessment.recommendations.length > 0 && (
+        <Card variant="glass" padding="lg" className="w-full mb-8 animate-fade-in-up">
+          <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-3">
+            Recommendations
+          </h3>
+          <ul className="space-y-2">
+            {assessment.recommendations.map((rec, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-aura-text">
+                <span className="text-aura-gold mt-0.5">&#9679;</span>
+                {rec}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <Button variant="gold" size="lg" onClick={onContinue}>
+        Choose Your Interests
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Category Selection
 // ---------------------------------------------------------------------------
 
@@ -414,7 +541,7 @@ export default function Onboarding() {
   const handleAssessmentComplete = useCallback(
     (result: LevelAssessment) => {
       setAssessment(result)
-      setStep('categories')
+      setStep('results')
     },
     [],
   )
@@ -442,6 +569,7 @@ export default function Onboarding() {
   const steps: { key: OnboardingStep; label: string }[] = [
     { key: 'welcome', label: 'Welcome' },
     { key: 'assessment', label: 'Assessment' },
+    { key: 'results', label: 'Results' },
     { key: 'categories', label: 'Interests' },
   ]
   const currentStepIndex = steps.findIndex((s) => s.key === step)
@@ -494,6 +622,13 @@ export default function Onboarding() {
 
         {step === 'assessment' && (
           <LevelAssessmentStep onComplete={handleAssessmentComplete} />
+        )}
+
+        {step === 'results' && assessment && (
+          <AssessmentResults
+            assessment={assessment}
+            onContinue={() => setStep('categories')}
+          />
         )}
 
         {step === 'categories' && (

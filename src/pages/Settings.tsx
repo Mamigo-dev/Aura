@@ -8,6 +8,8 @@ import { GradientText } from '../components/ui/GradientText'
 import { Modal } from '../components/ui/Modal'
 import { Header } from '../components/layout/Header'
 import type { AIProvider, SearchProvider } from '../types/user'
+import { getAIStatus } from '../lib/ai-status'
+import { TTS_VOICES, type TTSVoice } from '../lib/tts'
 
 const SEARCH_PROVIDERS: { id: SearchProvider; label: string }[] = [
   { id: 'brave', label: 'Brave Search' },
@@ -111,6 +113,50 @@ export default function Settings() {
       <Header showBack title="Settings" showSettings={false} />
 
       <div className="max-w-3xl mx-auto px-4 pt-6 space-y-6">
+        {/* AI Connection Status */}
+        {(() => {
+          const status = getAIStatus(preferences)
+          return (
+            <Card
+              variant="glass"
+              padding="md"
+              className={`animate-fade-in-up border-l-4 ${
+                status.aiConnected ? 'border-l-aura-success' : 'border-l-aura-warning'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    status.aiConnected ? 'bg-aura-success animate-pulse' : 'bg-aura-warning'
+                  }`}
+                />
+                <h3 className="font-semibold text-aura-text">
+                  {status.aiConnected ? 'AI Connected' : 'AI Not Connected'}
+                </h3>
+              </div>
+              {status.aiConnected ? (
+                <div className="text-sm text-aura-text-dim space-y-1">
+                  <p>
+                    Provider: <span className="text-aura-text font-medium">{status.aiProvider === 'claude' ? 'Claude' : 'GPT'}</span>
+                    {' '}&middot;{' '}
+                    Scoring: <span className="text-aura-success font-medium">AI-Powered</span>
+                  </p>
+                  {status.searchProvidersConnected.length > 0 && (
+                    <p>
+                      Search: <span className="text-aura-text font-medium">{status.searchProvidersConnected.join(', ')}</span>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-aura-text-dim space-y-1">
+                  <p>Scoring is <span className="text-aura-warning font-medium">Local Only</span> (basic word matching)</p>
+                  <p>Add an API key below to enable AI-powered scoring, content generation, and Your Aura examples.</p>
+                </div>
+              )}
+            </Card>
+          )
+        })()}
+
         {/* AI Provider */}
         <Card variant="glass" padding="md" className="animate-fade-in-up">
           <h3 className="font-semibold mb-3">
@@ -271,6 +317,40 @@ export default function Settings() {
             </div>
           </div>
         </Card>
+
+        {/* AI Voice Selection */}
+        {preferences.apiKeys?.gpt && (
+          <Card variant="glass" padding="md" className="animate-fade-in-up">
+            <h3 className="font-semibold mb-3">
+              <GradientText>AI Voice</GradientText>
+            </h3>
+            <p className="text-xs text-aura-text-dim mb-3">
+              Powered by OpenAI TTS. Used for Listen buttons across the app.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {TTS_VOICES.map((v) => {
+                const currentVoice = preferences.ttsVoice || 'nova'
+                const isSelected = currentVoice === v.id
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => updateProfile({
+                      preferences: { ...preferences, ttsVoice: v.id },
+                    })}
+                    className={`text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+                      isSelected
+                        ? 'bg-aura-purple/20 border border-aura-purple text-aura-text'
+                        : 'bg-aura-surface border border-aura-border text-aura-text-dim hover:border-aura-purple/30'
+                    }`}
+                  >
+                    <span className="font-medium block">{v.label}</span>
+                    <span className="text-xs opacity-70">{v.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Speech Rate */}
         <Card variant="glass" padding="md" className="animate-fade-in-up">

@@ -26,6 +26,7 @@ export interface UserPreferences {
   aiProvider: AIProvider
   searchProviders: SearchProvider[]
   apiKeys: Partial<Record<AIProvider | SearchProvider, string>>
+  ttsVoice: string // OpenAI TTS voice: alloy, echo, fable, nova, onyx, shimmer
 }
 
 export interface LevelAssessment {
@@ -70,6 +71,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   aiProvider: 'claude',
   searchProviders: ['brave', 'newsapi'],
   apiKeys: {},
+  ttsVoice: 'nova',
 }
 
 export function createDefaultProfile(): UserProfile {

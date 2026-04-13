@@ -58,11 +58,53 @@ export default function Home() {
 
   const exercises = useMemo(() => {
     const selected = profile?.selectedCategories
-    if (!selected || selected.length === 0) return SAMPLE_EXERCISES
-    return SAMPLE_EXERCISES.filter((ex) =>
-      ex.categoryPath.some((seg) => selected.includes(seg))
-    )
-  }, [profile?.selectedCategories])
+    const userLevel = profile?.level || 'B1'
+    const weakAreas = profile?.assessment?.weakAreas || []
+
+    let filtered = [...SAMPLE_EXERCISES]
+
+    // Filter by selected categories if any
+    if (selected && selected.length > 0) {
+      const categoryMatched = filtered.filter((ex) =>
+        ex.categoryPath.some((seg) => selected.includes(seg))
+      )
+      // If we have matches, use them; otherwise fall back to all
+      if (categoryMatched.length > 0) filtered = categoryMatched
+    }
+
+    // Sort: prioritize exercises matching user level, then exercises targeting weak areas
+    filtered.sort((a, b) => {
+      // Level match priority
+      const aLevelMatch = a.level === userLevel ? 1 : 0
+      const bLevelMatch = b.level === userLevel ? 1 : 0
+
+      // Weak area priority: daily_expressions -> daily category, public_speaking -> speech_mode etc.
+      const weakAreaCategoryMap: Record<string, string[]> = {
+        daily_expressions: ['daily'],
+        public_speaking: ['academic-speaking', 'speech_mode'],
+        writing: ['writing'],
+        grammar: ['reading_comprehension'],
+        idioms: ['daily'],
+      }
+      const aWeakMatch = weakAreas.some((wa) =>
+        weakAreaCategoryMap[wa]?.some((cat) =>
+          a.categoryPath.includes(cat) || a.type === cat
+        )
+      ) ? 1 : 0
+      const bWeakMatch = weakAreas.some((wa) =>
+        weakAreaCategoryMap[wa]?.some((cat) =>
+          b.categoryPath.includes(cat) || b.type === cat
+        )
+      ) ? 1 : 0
+
+      // Higher priority first
+      const aScore = aLevelMatch * 2 + aWeakMatch
+      const bScore = bLevelMatch * 2 + bWeakMatch
+      return bScore - aScore
+    })
+
+    return filtered
+  }, [profile?.selectedCategories, profile?.level, profile?.assessment?.weakAreas])
 
   const exerciseTypes: ExerciseType[] = [
     'read_aloud',
@@ -129,6 +171,25 @@ export default function Home() {
             <span className="text-xs text-aura-text-dim mt-0.5">day streak</span>
           </Card>
         </section>
+
+        {/* Focus Areas (from assessment) */}
+        {profile?.assessment?.weakAreas && profile.assessment.weakAreas.length > 0 && (
+          <section className="animate-fade-in-up">
+            <h2 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-2">
+              Focus Areas
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {profile.assessment.weakAreas.map((area) => (
+                <span
+                  key={area}
+                  className="px-3 py-1 rounded-lg bg-aura-purple/10 text-aura-purple text-xs font-medium border border-aura-purple/20"
+                >
+                  {area.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Quick Start Buttons */}
         <section className="animate-fade-in-up">

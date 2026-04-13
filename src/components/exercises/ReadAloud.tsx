@@ -3,10 +3,13 @@ import type { Exercise, ReadAloudContent } from '../../types/exercise'
 import type { ExerciseResult, ReadAloudScore } from '../../types/scoring'
 import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
+import { useUserStore } from '../../stores/userStore'
 import { wordLevelAccuracy, countFillerWords, calculateWPM, calculateFluency, findMissedWords } from '../../lib/scoring'
+import { shouldUseAI } from '../../lib/ai-status'
+import { scorePronunciation } from '../../api/client'
 import { useSpeechRecognition } from '../speech/useSpeechRecognition'
-import { useSpeechSynthesis } from '../speech/useSpeechSynthesis'
 import { Microphone } from '../speech/Microphone'
+import { ListenButton } from '../speech/ListenButton'
 import { ExerciseWrapper } from './ExerciseWrapper'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -20,11 +23,10 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
   const content = exercise.content as ReadAloudContent
   const { phase, elapsedSeconds, startExercise, setPhase, setResult, setTranscription } = useExerciseStore()
   const [hasRecorded, setHasRecorded] = useState(false)
-
-  const { speak, isSpeaking, cancel: cancelSpeech } = useSpeechSynthesis({ rate: 0.9 })
+  const [stoppedTranscript, setStoppedTranscript] = useState('')
 
   const handleRecordingEnd = useCallback(() => {
-    setHasRecorded(true)
+    // Speech recognition ended naturally (silence or browser stopped it)
   }, [])
 
   const {
@@ -50,41 +52,89 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
       startExercise()
     }
     setPhase('recording')
+    setHasRecorded(false)
+    setStoppedTranscript('')
     resetTranscript()
     startListening()
   }, [phase, startExercise, setPhase, resetTranscript, startListening])
 
   const handleStop = useCallback(() => {
     stopListening()
+    const finalText = transcript.trim()
+    setStoppedTranscript(finalText)
+    setTranscription(finalText)
+    setHasRecorded(true)
+    setPhase('in_progress')
+  }, [stopListening, transcript, setTranscription, setPhase])
+
+  const profile = useUserStore((s) => s.profile)
+  const useAI = profile ? shouldUseAI(profile.preferences) : false
+
+  const handleSubmitScore = useCallback(async () => {
+    const finalTranscript = stoppedTranscript || transcript.trim()
+    if (!finalTranscript) return
+
     setPhase('scoring')
-    setTranscription(transcript)
 
-    const finalTranscript = transcript.trim()
-    if (!finalTranscript) {
-      setPhase('in_progress')
-      return
-    }
-
-    // Calculate scores
-    const accuracy = wordLevelAccuracy(content.passage, finalTranscript)
+    // Always calculate local scores as baseline
+    const localAccuracy = wordLevelAccuracy(content.passage, finalTranscript)
     const { count: fillerCount } = countFillerWords(finalTranscript)
     const wpm = calculateWPM(finalTranscript, elapsedSeconds)
     const totalWords = finalTranscript.split(/\s+/).filter(Boolean).length
-    const fluency = calculateFluency(wpm, fillerCount, totalWords, 'reading')
+    const localFluency = calculateFluency(wpm, fillerCount, totalWords, 'reading')
     const missedWords = findMissedWords(content.passage, finalTranscript)
+    const localPronunciation = Math.min(100, Math.round(localAccuracy * 0.8 + 20))
 
-    // Pronunciation score: approximate from accuracy with slight bonus
-    const pronunciation = Math.min(100, Math.round(accuracy * 0.8 + 20))
+    let details: ReadAloudScore
 
-    const details: ReadAloudScore = {
-      type: 'read_aloud',
-      transcription: finalTranscript,
-      accuracy,
-      fluency,
-      pronunciation,
-      missedWords,
-      mispronounced: [],
-      overallFeedback: generateFeedback(accuracy, fluency, pronunciation),
+    if (useAI && profile) {
+      try {
+        const aiResult = await scorePronunciation(
+          {
+            originalText: content.passage,
+            transcription: finalTranscript,
+            keyPhrases: content.keyPhrases,
+          },
+          {
+            provider: profile.preferences.aiProvider,
+            apiKey: profile.preferences.apiKeys?.[profile.preferences.aiProvider],
+          }
+        ) as ReadAloudScore
+
+        details = {
+          type: 'read_aloud',
+          transcription: finalTranscript,
+          accuracy: aiResult.accuracy ?? localAccuracy,
+          fluency: aiResult.fluency ?? localFluency,
+          pronunciation: aiResult.pronunciation ?? localPronunciation,
+          missedWords: aiResult.missedWords ?? missedWords,
+          mispronounced: aiResult.mispronounced ?? [],
+          overallFeedback: aiResult.overallFeedback ?? generateFeedback(localAccuracy, localFluency, localPronunciation),
+        }
+      } catch (err) {
+        console.warn('AI scoring failed, using local:', err)
+        details = {
+          type: 'read_aloud',
+          transcription: finalTranscript,
+          accuracy: localAccuracy,
+          fluency: localFluency,
+          pronunciation: localPronunciation,
+          missedWords,
+          mispronounced: [],
+          overallFeedback: generateFeedback(localAccuracy, localFluency, localPronunciation),
+        }
+      }
+    } else {
+      details = {
+        type: 'read_aloud',
+        transcription: finalTranscript,
+        accuracy: localAccuracy,
+        fluency: localFluency,
+        pronunciation: localPronunciation,
+        missedWords,
+        mispronounced: [],
+        overallFeedback: generateFeedback(localAccuracy, localFluency, localPronunciation),
+      }
     }
 
     const overallScore = calculateOverallScore('read_aloud', details)
@@ -101,15 +151,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
     }
 
     setResult(result)
-  }, [stopListening, setPhase, setTranscription, transcript, content.passage, elapsedSeconds, exercise, setResult])
-
-  const handleListen = useCallback(() => {
-    if (isSpeaking) {
-      cancelSpeech()
-    } else {
-      speak(content.passage)
-    }
-  }, [isSpeaking, cancelSpeech, speak, content.passage])
+  }, [stoppedTranscript, transcript, content.passage, elapsedSeconds, exercise, setPhase, setResult, useAI, profile, content.keyPhrases])
 
   const handleComplete = useCallback(
     (result: ExerciseResult) => {
@@ -172,26 +214,13 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
         </div>
       )}
 
-      {/* Listen button */}
+      {/* Listen button - uses AI TTS when OpenAI key is available */}
       <div className="flex justify-center">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleListen}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </svg>
-          }
-        >
-          {isSpeaking ? 'Stop Listening' : 'Listen'}
-        </Button>
+        <ListenButton text={content.passage} />
       </div>
 
       {/* Microphone */}
-      {phase !== 'completed' && (
+      {phase !== 'completed' && phase !== 'scoring' && (
         <div className="flex justify-center py-4">
           <Microphone
             isListening={isListening}
@@ -202,20 +231,55 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
       )}
 
       {/* Real-time transcription */}
-      {fullTranscript && (
+      {(fullTranscript || stoppedTranscript) && (
         <Card variant="default" padding="sm">
           <p className="text-sm text-aura-text-dim mb-1 font-medium">Your transcription:</p>
           <p className="text-aura-text leading-relaxed">
-            {transcript}
-            {interimTranscript && (
-              <span className="text-aura-text-dim italic"> {interimTranscript}</span>
+            {isListening ? (
+              <>
+                {transcript}
+                {interimTranscript && (
+                  <span className="text-aura-text-dim italic"> {interimTranscript}</span>
+                )}
+              </>
+            ) : (
+              stoppedTranscript || transcript
             )}
           </p>
         </Card>
       )}
 
+      {/* Submit button after recording */}
+      {hasRecorded && phase !== 'completed' && phase !== 'scoring' && (
+        <div className="flex flex-col items-center gap-3 py-2">
+          <p className="text-sm text-aura-text-dim">
+            {stoppedTranscript
+              ? 'Happy with your recording? Submit it for scoring, or record again.'
+              : 'No speech detected. Try recording again.'}
+          </p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={handleStart}>
+              Record Again
+            </Button>
+            {stoppedTranscript && (
+              <Button variant="gold" onClick={handleSubmitScore}>
+                Submit for Scoring
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Scoring in progress */}
+      {phase === 'scoring' && (
+        <div className="flex flex-col items-center gap-3 py-6">
+          <div className="w-8 h-8 border-2 border-aura-purple border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-aura-text-dim">Analyzing your reading...</p>
+        </div>
+      )}
+
       {/* Feedback after scoring */}
-      {phase === 'completed' && hasRecorded && (
+      {phase === 'completed' && (
         <Card variant="default">
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide">

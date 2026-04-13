@@ -3,7 +3,10 @@ import type { Exercise, WritingContent } from '../../types/exercise'
 import type { ExerciseResult, WritingScore, SentenceFeedback } from '../../types/scoring'
 import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
+import { useUserStore } from '../../stores/userStore'
 import { countWords } from '../../lib/scoring'
+import { shouldUseAI } from '../../lib/ai-status'
+import { scoreWriting } from '../../api/client'
 import { ExerciseWrapper } from './ExerciseWrapper'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -43,44 +46,52 @@ export function Writing({ exercise, onComplete }: WritingProps) {
     [phase, startExercise, setUserInput]
   )
 
+  const profile = useUserStore((s) => s.profile)
+  const useAI = profile ? shouldUseAI(profile.preferences) : false
+
   const handleSubmit = useCallback(async () => {
     if (isBelowMin) return
 
     setIsScoring(true)
     setPhase('scoring')
 
-    // Simulate AI scoring delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    let details: WritingScore
 
-    // Generate mock scores (12-18 per dimension, out of 20)
-    const grammar = randomScore(12, 18)
-    const vocabulary = randomScore(12, 18)
-    const coherence = randomScore(12, 18)
-    const taskFulfillment = randomScore(12, 18)
-    const style = randomScore(12, 18)
+    if (useAI && profile) {
+      // Use AI scoring
+      try {
+        const aiResult = await scoreWriting(
+          {
+            prompt: content.prompt,
+            submission: userInput,
+            level: profile.level,
+            rubric: content.rubric,
+          },
+          {
+            provider: profile.preferences.aiProvider,
+            apiKey: profile.preferences.apiKeys?.[profile.preferences.aiProvider],
+          }
+        ) as WritingScore & { overallFeedback: string; sentenceFeedback: SentenceFeedback[] }
 
-    // Generate mock sentence feedback
-    const sentences = userInput
-      .split(/(?<=[.!?])\s+/)
-      .filter((s) => s.trim().length > 0)
-      .slice(0, 5) // Limit to 5 sentences for feedback
-
-    const sentenceFeedback: SentenceFeedback[] = sentences.map((sentence) => ({
-      sentence,
-      feedback: generateMockSentenceFeedback(),
-      improved: sentence, // placeholder
-    }))
-
-    const details: WritingScore = {
-      type: 'writing',
-      grammar,
-      vocabulary,
-      coherence,
-      taskFulfillment,
-      style,
-      wordCount,
-      overallFeedback: generateOverallFeedback(grammar + vocabulary + coherence + taskFulfillment + style),
-      sentenceFeedback,
+        details = {
+          type: 'writing',
+          grammar: aiResult.grammar ?? randomScore(12, 18),
+          vocabulary: aiResult.vocabulary ?? randomScore(12, 18),
+          coherence: aiResult.coherence ?? randomScore(12, 18),
+          taskFulfillment: aiResult.taskFulfillment ?? randomScore(12, 18),
+          style: aiResult.style ?? randomScore(12, 18),
+          wordCount,
+          overallFeedback: aiResult.overallFeedback || 'Good effort!',
+          sentenceFeedback: aiResult.sentenceFeedback || [],
+        }
+      } catch (err) {
+        console.warn('AI scoring failed, falling back to local:', err)
+        details = generateLocalScore()
+      }
+    } else {
+      // Local scoring fallback
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      details = generateLocalScore()
     }
 
     const overallScore = calculateOverallScore('writing', details)
@@ -98,7 +109,38 @@ export function Writing({ exercise, onComplete }: WritingProps) {
 
     setIsScoring(false)
     setResult(result)
-  }, [isBelowMin, setPhase, userInput, wordCount, exercise, elapsedSeconds, setResult])
+  }, [isBelowMin, setPhase, userInput, wordCount, exercise, elapsedSeconds, setResult, useAI, profile, content])
+
+  const generateLocalScore = useCallback((): WritingScore => {
+    const grammar = randomScore(12, 18)
+    const vocabulary = randomScore(12, 18)
+    const coherence = randomScore(12, 18)
+    const taskFulfillment = randomScore(12, 18)
+    const style = randomScore(12, 18)
+
+    const sentences = userInput
+      .split(/(?<=[.!?])\s+/)
+      .filter((s) => s.trim().length > 0)
+      .slice(0, 5)
+
+    const sentenceFeedback: SentenceFeedback[] = sentences.map((sentence) => ({
+      sentence,
+      feedback: generateMockSentenceFeedback(),
+      improved: sentence,
+    }))
+
+    return {
+      type: 'writing',
+      grammar,
+      vocabulary,
+      coherence,
+      taskFulfillment,
+      style,
+      wordCount,
+      overallFeedback: generateOverallFeedback(grammar + vocabulary + coherence + taskFulfillment + style),
+      sentenceFeedback,
+    }
+  }, [userInput, wordCount])
 
   const toggleFeedback = useCallback((index: number) => {
     setExpandedFeedback((prev) => {

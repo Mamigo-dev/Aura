@@ -3,6 +3,8 @@ import type { Exercise } from '../../types/exercise'
 import type { ExerciseResult } from '../../types/scoring'
 import { EXERCISE_TYPE_LABELS } from '../../types/exercise'
 import { useExerciseStore } from '../../stores/exerciseStore'
+import { useUserStore } from '../../stores/userStore'
+import { shouldUseAI } from '../../lib/ai-status'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { ScoreBadge } from '../ui/ScoreBadge'
@@ -23,6 +25,9 @@ export function ExerciseWrapper({ exercise, children, onComplete }: ExerciseWrap
     setExercise,
     reset,
   } = useExerciseStore()
+
+  const profile = useUserStore((s) => s.profile)
+  const isAIScored = profile ? shouldUseAI(profile.preferences) : false
 
   useEffect(() => {
     setExercise(exercise)
@@ -93,6 +98,7 @@ export function ExerciseWrapper({ exercise, children, onComplete }: ExerciseWrap
             score={score}
             passed={result.passed}
             animate
+            scoredBy={isAIScored ? 'ai' : 'local'}
           />
 
           {/* Aura example */}

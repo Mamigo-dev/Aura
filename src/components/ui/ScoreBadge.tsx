@@ -4,6 +4,7 @@ interface ScoreBadgeProps {
   size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
   animate?: boolean
+  scoredBy?: 'ai' | 'local'
 }
 
 export function ScoreBadge({
@@ -12,6 +13,7 @@ export function ScoreBadge({
   size = 'md',
   showLabel = true,
   animate = true,
+  scoredBy = 'local',
 }: ScoreBadgeProps) {
   const sizeStyles = {
     sm: 'text-lg w-12 h-12',
@@ -42,11 +44,36 @@ export function ScoreBadge({
         {score}
       </div>
       {showLabel && (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-1">
           <span className={`text-sm font-medium ${passed ? 'text-aura-success' : 'text-aura-error'}`}>
             {passed ? 'PASSED' : 'NOT PASSED'}
           </span>
           <span className="text-xs text-aura-text-dim">{getLabel()}</span>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+            scoredBy === 'ai'
+              ? 'bg-aura-purple/20 text-aura-purple'
+              : 'bg-aura-surface text-aura-text-dim'
+          }`}>
+            {scoredBy === 'ai' ? (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+                AI Scored
+              </>
+            ) : (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <path d="M9 9h6" />
+                  <path d="M9 15h4" />
+                </svg>
+                Local
+              </>
+            )}
+          </span>
         </div>
       )}
     </div>
