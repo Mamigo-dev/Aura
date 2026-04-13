@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+@theme {
+  --color-aura-purple: #7B2FBE;
+  --color-aura-deep-purple: #4A0E8F;
+  --color-aura-blue: #1B1464;
+  --color-aura-midnight: #0D0B2E;
+  --color-aura-gold: #D4A843;
+  --color-aura-gold-light: #F0D78C;
+  --color-aura-gold-dim: #8B7535;
+  --color-aura-surface: #151234;
+  --color-aura-surface-hi: #1E1A4A;
+  --color-aura-border: #2A2560;
+  --color-aura-text: #E8E6F0;
+  --color-aura-text-dim: #9B97B8;
+  --color-aura-success: #4ADE80;
+  --color-aura-error: #F87171;
+  --color-aura-warning: #FBBF24;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: var(--color-aura-midnight);
+  color: var(--color-aura-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Aurora gradient backgrounds */
+.gradient-aurora {
+  background: linear-gradient(135deg, #7B2FBE 0%, #1B1464 50%, #0D0B2E 100%);
+}
+
+.gradient-aurora-radial {
+  background: radial-gradient(ellipse at top, #4A0E8F 0%, #1B1464 40%, #0D0B2E 100%);
+}
+
+.gradient-gold {
+  background: linear-gradient(90deg, #8B7535 0%, #D4A843 40%, #F0D78C 60%, #D4A843 100%);
+}
+
+.gradient-aura-text {
+  background: linear-gradient(90deg, #7B2FBE, #D4A843);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-card {
+  background: linear-gradient(180deg, #1E1A4A 0%, #151234 100%);
+  border: 1px solid #2A2560;
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(21, 18, 52, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 37, 96, 0.6);
+}
+
+.glass-elevated {
+  background: rgba(30, 26, 74, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(42, 37, 96, 0.8);
+}
+
+/* Pulsing microphone ring */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 168, 67, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(212, 168, 67, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 168, 67, 0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Waveform animation */
+@keyframes waveform {
+  0%, 100% { height: 4px; }
+  50% { height: 24px; }
+}
+
+.waveform-bar {
+  animation: waveform 0.8s ease-in-out infinite;
+}
+
+/* Score reveal */
+@keyframes score-reveal {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-score-reveal {
+  animation: score-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Shimmer for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #151234 25%, #1E1A4A 50%, #151234 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Streak celebration */
+@keyframes celebrate {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.2) rotate(-5deg); }
+  50% { transform: scale(1.2) rotate(5deg); }
+  75% { transform: scale(1.1) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.animate-celebrate {
+  animation: celebrate 0.6s ease-in-out;
+}
+
+/* Page transition */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+/* Safe area for iOS */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2560;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3D35A0;
+}

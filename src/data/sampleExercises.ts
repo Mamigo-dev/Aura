@@ -1,0 +1,266 @@
+import type { Exercise } from '../types/exercise'
+
+export const SAMPLE_EXERCISES: Exercise[] = [
+  // Read Aloud exercises
+  {
+    id: 'ra-daily-1',
+    type: 'read_aloud',
+    level: 'B1',
+    categoryPath: ['daily', 'daily-workplace', 'daily-workplace-networking'],
+    title: 'Coffee Break Chat',
+    description: 'Practice casual workplace conversation',
+    passingScore: 70,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'read_aloud',
+      passage: "Hey, how's your morning going? I just grabbed a coffee from the new place down the street. Have you tried it yet? They have this amazing oat milk latte. By the way, did you catch the email about the team offsite? I think it's going to be a great chance to get to know everyone better.",
+      keyPhrases: ['how\'s your morning going', 'grabbed a coffee', 'team offsite', 'get to know everyone'],
+      phoneticsHints: {
+        'offsite': '/ˈɒf.saɪt/',
+        'latte': '/ˈlɑː.teɪ/',
+      },
+      difficulty: 'intermediate',
+    },
+  },
+  {
+    id: 'ra-tech-1',
+    type: 'read_aloud',
+    level: 'B2',
+    categoryPath: ['tech', 'tech-ai', 'tech-ai-llm'],
+    title: 'AI in Daily Life',
+    description: 'Read about how AI is changing everyday experiences',
+    passingScore: 70,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'read_aloud',
+      passage: "Artificial intelligence has quietly woven itself into our daily routines. From the moment we wake up and check our smartphones, algorithms are curating our news feeds, suggesting optimal routes for our commute, and even predicting what we might want for lunch. The remarkable thing isn't just the technology itself, but how seamlessly it has integrated into our lives without most people even noticing.",
+      keyPhrases: ['woven itself into', 'curating our news feeds', 'optimal routes', 'seamlessly integrated'],
+      phoneticsHints: {
+        'algorithms': '/ˈæl.ɡə.rɪð.əmz/',
+        'seamlessly': '/ˈsiːm.ləs.li/',
+      },
+      difficulty: 'upper-intermediate',
+    },
+  },
+  {
+    id: 'ra-speech-1',
+    type: 'read_aloud',
+    level: 'B2',
+    categoryPath: ['academic', 'academic-speaking', 'academic-speaking-conference'],
+    title: 'Conference Opening',
+    description: 'Practice delivering a conference opening speech',
+    passingScore: 70,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'read_aloud',
+      passage: "Good morning, everyone. Thank you for joining us today. Before I dive into the technical details, I'd like to set the stage with a question: How many of you have ever felt frustrated trying to explain a complex technical concept to a non-technical audience? I see a lot of hands. That's exactly what we're going to address today. The gap between technical expertise and effective communication is one of the biggest challenges in our industry.",
+      keyPhrases: ['set the stage', 'dive into the technical details', 'non-technical audience', 'effective communication'],
+      phoneticsHints: {
+        'expertise': '/ˌek.spɜːˈtiːz/',
+        'frustrated': '/ˈfrʌs.treɪ.tɪd/',
+      },
+      difficulty: 'upper-intermediate',
+    },
+  },
+
+  // Reading Comprehension exercises
+  {
+    id: 'rc-health-1',
+    type: 'reading_comprehension',
+    level: 'B1',
+    categoryPath: ['health', 'health-exercise', 'health-exercise-strength'],
+    title: 'Benefits of Strength Training',
+    description: 'Read about why strength training matters',
+    passingScore: 60,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'reading_comprehension',
+      passage: "Strength training isn't just for bodybuilders. Research consistently shows that regular resistance exercise offers benefits that extend far beyond muscle growth. It improves bone density, which is particularly important as we age. It boosts metabolism, helping your body burn more calories even at rest. Perhaps most surprisingly, strength training has been shown to significantly improve mental health, reducing symptoms of anxiety and depression by up to 20% in some studies.\n\nMany people avoid the weight room because they're intimidated or believe they need to lift heavy to see results. The truth is, even moderate resistance training twice a week can produce measurable improvements in strength, posture, and overall well-being. Bodyweight exercises like push-ups, squats, and planks are a perfectly valid starting point.",
+      questions: [
+        {
+          id: 'rc-h1-q1',
+          question: 'According to the passage, what is one benefit of strength training for older people?',
+          options: ['It makes them look younger', 'It improves bone density', 'It helps them lose weight faster', 'It increases flexibility'],
+          correctIndex: 1,
+          explanation: 'The passage states that strength training "improves bone density, which is particularly important as we age."',
+        },
+        {
+          id: 'rc-h1-q2',
+          question: 'How often does the passage suggest training to see results?',
+          options: ['Every day', 'Three times a week', 'Twice a week', 'Once a week'],
+          correctIndex: 2,
+          explanation: 'The passage says "even moderate resistance training twice a week can produce measurable improvements."',
+        },
+        {
+          id: 'rc-h1-q3',
+          question: 'What does the passage say about mental health?',
+          options: ['Strength training has no effect on mental health', 'It can reduce anxiety and depression symptoms', 'Only heavy lifting helps mental health', 'Mental health improves only with cardio'],
+          correctIndex: 1,
+          explanation: 'The passage states strength training "has been shown to significantly improve mental health, reducing symptoms of anxiety and depression."',
+        },
+      ],
+    },
+  },
+  {
+    id: 'rc-news-1',
+    type: 'reading_comprehension',
+    level: 'B2',
+    categoryPath: ['news', 'news-science', 'news-science-tech'],
+    title: 'The Rise of Edge Computing',
+    description: 'Understand the shift toward edge computing',
+    passingScore: 60,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'reading_comprehension',
+      passage: "The cloud computing paradigm that has dominated the tech industry for the past decade is undergoing a significant transformation. Edge computing, which processes data closer to where it's generated rather than sending everything to centralized data centers, is rapidly gaining momentum.\n\nThe drivers behind this shift are practical: autonomous vehicles can't afford the latency of sending data to a distant server and waiting for a response. Similarly, industrial IoT sensors in factories need to make split-second decisions. Even consumer applications like augmented reality glasses require the kind of instant processing that edge computing provides.\n\nThis doesn't mean the cloud is going away. Rather, we're moving toward a hybrid model where cloud infrastructure handles heavy computation and long-term storage, while edge devices manage time-sensitive processing. Industry analysts project that by 2027, over 75% of enterprise data will be processed at the edge.",
+      questions: [
+        {
+          id: 'rc-n1-q1',
+          question: 'What is the main advantage of edge computing over traditional cloud computing?',
+          options: ['It\'s cheaper', 'It processes data closer to the source, reducing latency', 'It stores more data', 'It uses less energy'],
+          correctIndex: 1,
+          explanation: 'The passage explains edge computing "processes data closer to where it\'s generated" to avoid latency issues.',
+        },
+        {
+          id: 'rc-n1-q2',
+          question: 'According to the passage, what will happen to cloud computing?',
+          options: ['It will be completely replaced', 'It will become a hybrid model with edge', 'It will only be used for storage', 'It will become more centralized'],
+          correctIndex: 1,
+          explanation: 'The passage states "we\'re moving toward a hybrid model where cloud infrastructure handles heavy computation."',
+        },
+        {
+          id: 'rc-n1-q3',
+          question: 'What percentage of enterprise data is projected to be processed at the edge by 2027?',
+          options: ['50%', '60%', '75%', '90%'],
+          correctIndex: 2,
+          explanation: 'The passage projects "over 75% of enterprise data will be processed at the edge."',
+        },
+      ],
+    },
+  },
+
+  // Recitation exercises
+  {
+    id: 'rec-daily-1',
+    type: 'recitation',
+    level: 'B1',
+    categoryPath: ['daily', 'daily-travel', 'daily-travel-dining'],
+    title: 'Ordering at a Restaurant',
+    description: 'Memorize and recite a restaurant ordering conversation',
+    passingScore: 65,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'recitation',
+      passage: "Hi, could I see the menu please? I'm not sure what to get. What do you recommend? I'll have the grilled salmon with a side salad. Could I also get a glass of sparkling water? Oh, and do you have any gluten-free options for dessert? That sounds perfect. I'll take the chocolate mousse. Thank you so much.",
+      hints: ['Hi, could I', "I'm not sure", "I'll have", 'Could I also', 'Oh, and do you', 'That sounds', 'Thank you'],
+      keyVocabulary: [
+        { word: 'recommend', definition: 'to suggest something as good or suitable', example: 'Can you recommend a good restaurant nearby?' },
+        { word: 'sparkling', definition: 'containing small bubbles of gas', example: 'I prefer sparkling water over still water.' },
+        { word: 'gluten-free', definition: 'not containing gluten (a protein found in wheat)', example: 'Many restaurants now offer gluten-free options.' },
+      ],
+    },
+  },
+
+  // Writing exercises
+  {
+    id: 'wr-work-1',
+    type: 'writing',
+    level: 'B2',
+    categoryPath: ['daily', 'daily-workplace', 'daily-workplace-email'],
+    title: 'Professional Email Response',
+    description: 'Write a professional email declining a meeting invitation',
+    passingScore: 60,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'writing',
+      prompt: 'Your colleague has invited you to a meeting scheduled for tomorrow at 3 PM to discuss the Q2 marketing strategy. Unfortunately, you have a conflicting appointment. Write a polite email declining the invitation, suggesting an alternative time, and offering to contribute your ideas in writing beforehand.',
+      context: 'You work in the marketing department of a tech company. The meeting organizer is a peer, not your manager. Keep the tone professional but friendly.',
+      minWords: 80,
+      maxWords: 200,
+      rubric: {
+        grammar: { weight: 20, description: 'Correct grammar, punctuation, and sentence structure' },
+        vocabulary: { weight: 20, description: 'Appropriate professional vocabulary and expressions' },
+        coherence: { weight: 20, description: 'Logical flow and clear organization' },
+        taskFulfillment: { weight: 20, description: 'Addresses all parts: decline, suggest alternative, offer contribution' },
+        style: { weight: 20, description: 'Professional yet friendly tone appropriate for a peer' },
+      },
+    },
+  },
+
+  // Speech Mode exercises
+  {
+    id: 'sp-pitch-1',
+    type: 'speech_mode',
+    level: 'B2',
+    categoryPath: ['academic', 'academic-speaking', 'academic-speaking-pitch'],
+    title: 'Elevator Pitch',
+    description: 'Deliver a 2-minute pitch about a project or idea',
+    passingScore: 65,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'speech_mode',
+      topic: 'Pitch a new feature for an app that helps people reduce screen time',
+      outline: {
+        introduction: 'Hook the audience with a surprising statistic about screen time',
+        bodyPoints: [
+          'Describe the problem: average adults spend 7+ hours on screens daily',
+          'Present your solution: an AI-powered feature that suggests offline alternatives',
+          'Explain the impact: early testing shows 30% reduction in non-essential screen time',
+        ],
+        conclusion: 'End with a call to action - invite the audience to try the feature',
+        suggestedTransitions: [
+          'Now, here\'s where it gets interesting...',
+          'But what if I told you...',
+          'And the results speak for themselves...',
+          'So what does this mean for you?',
+        ],
+      },
+      prepTime: 60,
+      speechTime: 120,
+      isImpromptu: false,
+      tips: [
+        'Maintain eye contact (look at the camera)',
+        'Vary your pace - slow down for key points',
+        'Use natural hand gestures',
+        'Pause after important statements for emphasis',
+      ],
+    },
+  },
+  {
+    id: 'sp-impromptu-1',
+    type: 'speech_mode',
+    level: 'B1',
+    categoryPath: ['academic', 'academic-speaking', 'academic-speaking-panel'],
+    title: 'Impromptu: Remote Work',
+    description: 'Speak spontaneously about remote work for 2 minutes',
+    passingScore: 65,
+    createdAt: new Date().toISOString(),
+    content: {
+      type: 'speech_mode',
+      topic: 'Do you think remote work is better than working in an office? Why or why not?',
+      outline: {
+        introduction: 'State your position clearly',
+        bodyPoints: [
+          'Give your main reason with a personal example',
+          'Acknowledge the other side of the argument',
+          'Explain what you think the ideal balance is',
+        ],
+        conclusion: 'Summarize your view in one sentence',
+        suggestedTransitions: [
+          'In my experience...',
+          'On the other hand...',
+          'All things considered...',
+        ],
+      },
+      prepTime: 30,
+      speechTime: 120,
+      isImpromptu: true,
+      tips: [
+        'Take a breath before starting',
+        'It\'s okay to pause and think',
+        'Use the outline as a guide, not a script',
+        'Speak clearly and at a comfortable pace',
+      ],
+    },
+  },
+]
