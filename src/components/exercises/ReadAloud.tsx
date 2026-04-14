@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Exercise, ReadAloudContent } from '../../types/exercise'
 import type { ExerciseResult, ReadAloudScore } from '../../types/scoring'
 import { calculateOverallScore } from '../../types/scoring'
@@ -27,6 +28,7 @@ interface ReadAloudProps {
 }
 
 export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
+  const navigate = useNavigate()
   const content = exercise.content as ReadAloudContent
   const { phase, elapsedSeconds, startExercise, setPhase, setResult, setTranscription } = useExerciseStore()
   const [hasRecorded, setHasRecorded] = useState(false)
@@ -317,6 +319,11 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           pronunciationCoaching: analysis.pronunciationCoaching,
           connectedSpeech: analysis.connectedSpeech,
           trainingPlan: analysis.trainingPlan,
+        }
+
+        // Save training plan to user profile so Home page can show it
+        if (analysis.trainingPlan) {
+          useUserStore.getState().updateProfile({ trainingPlan: analysis.trainingPlan })
         }
 
         // Recalculate accuracy and fluency with Whisper transcript
@@ -778,6 +785,14 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                     </div>
                   ))}
                 </div>
+
+                <Button
+                  variant="gold"
+                  className="w-full mt-3"
+                  onClick={() => navigate('/training')}
+                >
+                  Start Training Now →
+                </Button>
               </Card>
             )}
 

@@ -191,6 +191,52 @@ export default function Home() {
           </section>
         )}
 
+        {/* Training Plan (from AI pronunciation analysis) */}
+        {profile?.trainingPlan && profile.trainingPlan.exercises.length > 0 && (
+          <section className="animate-fade-in-up">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">
+                <GradientText variant="gold">Training Plan</GradientText>
+              </h2>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/training')}>
+                View All →
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {profile.trainingPlan.exercises.slice(0, 3).map((ex, i) => (
+                <Card
+                  key={i}
+                  variant="glass"
+                  padding="sm"
+                  hoverable
+                  onClick={() => navigate('/training')}
+                  className="group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-aura-gold/10 flex items-center justify-center text-aura-gold shrink-0">
+                      🎯
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-aura-text group-hover:text-aura-gold transition-colors truncate">
+                          {ex.name}
+                        </span>
+                        {ex.targetSound && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-aura-purple/20 text-aura-purple font-mono shrink-0">
+                            {ex.targetSound}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-aura-text-dim truncate">{ex.description}</p>
+                    </div>
+                    <span className="text-aura-text-dim group-hover:text-aura-gold transition-colors">▶</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Quick Start Buttons */}
         <section className="animate-fade-in-up">
           <h2 className="text-lg font-semibold mb-3">

@@ -10,6 +10,7 @@ import Categories from './pages/Categories'
 import Stories from './pages/Stories'
 import Progress from './pages/Progress'
 import Settings from './pages/Settings'
+import Training from './pages/Training'
 import ProHome from './pages/ProHome'
 import ProPractice from './pages/ProPractice'
 import ProExercise from './pages/ProExercise'
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/categories" element={isPro ? <ProCategories /> : <Categories />} />
           <Route path="/stories" element={<Stories />} />
           <Route path="/progress" element={isPro ? <ProProgress /> : <Progress />} />
+          <Route path="/training" element={<Training />} />
           <Route path="/settings" element={<Settings />} />
 
           {/* Professional Mode Routes */}

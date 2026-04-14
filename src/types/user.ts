@@ -23,6 +23,8 @@ export interface UserProfile {
   // Professional mode fields
   imbalanceAssessment?: import('./professional').ImbalanceAssessment
   selectedScenes?: string[] // scene IDs for professional mode
+  // Training plan from AI pronunciation analysis
+  trainingPlan?: import('./scoring').TrainingPlan
 }
 
 export interface UserPreferences {
