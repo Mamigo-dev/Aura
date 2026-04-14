@@ -6,7 +6,8 @@ import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { wordLevelAccuracy, countFillerWords, calculateWPM, calculateFluency, findMissedWords } from '../../lib/scoring'
 import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
-import { scorePronunciation, transcribeAudio, analyzePronunciationFull } from '../../api/client'
+import { transcribeAudio } from '../../api/client'
+import { scoreReadAloudDirect, analyzePronunciationDirect } from '../../api/directAI'
 import { startAudioRecording, stopAudioRecording } from '../../lib/audioRecorder'
 import { analyzePitch, detectIntonationPatterns, smoothPitchContour } from '../../lib/pitchAnalyzer'
 import { useSpeechRecognition } from '../speech/useSpeechRecognition'
@@ -116,7 +117,8 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
 
     if (useAI && profile) {
       try {
-        const aiResult = await scorePronunciation(
+        const aiKey = getEffectiveKey(profile.preferences, profile.preferences.aiProvider)
+        const aiResult = await scoreReadAloudDirect(
           {
             originalText: content.passage,
             transcription: finalTranscript,
@@ -124,7 +126,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           },
           {
             provider: profile.preferences.aiProvider,
-            apiKey: getEffectiveKey(profile.preferences, profile.preferences.aiProvider),
+            apiKey: aiKey,
           }
         ) as ReadAloudScore
 
@@ -199,8 +201,9 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           setPitchData(pitchContour)
         }
 
-        // Step 3: AI comprehensive analysis
-        const aiAnalysis = await analyzePronunciationFull(
+        // Step 3: AI comprehensive analysis (direct call, no backend needed)
+        const aiKey = getEffectiveKey(profile.preferences, profile.preferences.aiProvider)
+        const aiAnalysis = await analyzePronunciationDirect(
           {
             originalText: content.passage,
             transcription: finalTranscript,
@@ -211,17 +214,23 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           },
           {
             provider: profile.preferences.aiProvider,
-            apiKey: getEffectiveKey(profile.preferences, profile.preferences.aiProvider),
+            apiKey: aiKey,
           }
         )
 
         // Update the result with AI analysis
+        const analysis = aiAnalysis as {
+          wordAnalysis?: WordAnalysis[]
+          intonationFeedback?: IntonationFeedback[]
+          rhythmAnalysis?: RhythmAnalysis
+          pronunciationCoaching?: string
+        }
         const enhancedDetails: ReadAloudScore = {
           ...details,
-          wordAnalysis: aiAnalysis.wordAnalysis as WordAnalysis[],
-          intonationFeedback: aiAnalysis.intonationFeedback as IntonationFeedback[],
-          rhythmAnalysis: aiAnalysis.rhythmAnalysis as RhythmAnalysis,
-          pronunciationCoaching: aiAnalysis.pronunciationCoaching,
+          wordAnalysis: analysis.wordAnalysis,
+          intonationFeedback: analysis.intonationFeedback,
+          rhythmAnalysis: analysis.rhythmAnalysis,
+          pronunciationCoaching: analysis.pronunciationCoaching,
         }
         const enhancedResult: ExerciseResult = { ...result, details: enhancedDetails }
         setResult(enhancedResult)
