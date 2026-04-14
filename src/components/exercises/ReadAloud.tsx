@@ -30,8 +30,11 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
   const { phase, elapsedSeconds, startExercise, setPhase, setResult, setTranscription } = useExerciseStore()
   const [hasRecorded, setHasRecorded] = useState(false)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [pitchData, setPitchData] = useState<PitchContourData | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isPlayingRecording, setIsPlayingRecording] = useState(false)
+  const playbackRef = useRef<HTMLAudioElement | null>(null)
 
   const {
     isListening,
@@ -55,8 +58,11 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
     setHasRecorded(false)
     resetTranscript()
     setAudioBlob(null)
+    if (audioUrl) URL.revokeObjectURL(audioUrl)
+    setAudioUrl(null)
     setPitchData(null)
     setIsAnalyzing(false)
+    setIsPlayingRecording(false)
   }, [exercise.id, resetTranscript])
 
   // When speech recognition stops (user click or browser auto-stop),
@@ -66,8 +72,14 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
     if (prevListening.current && !isListening && transcript.trim()) {
       setHasRecorded(true)
       setTranscription(transcript.trim())
-      // Stop audio recording too
-      stopAudioRecording().then(blob => setAudioBlob(blob)).catch(() => {})
+      // Stop audio recording and create playback URL
+      stopAudioRecording().then(blob => {
+        setAudioBlob(blob)
+        if (blob.size > 0) {
+          if (audioUrl) URL.revokeObjectURL(audioUrl)
+          setAudioUrl(URL.createObjectURL(blob))
+        }
+      }).catch(() => {})
       if (phase === 'recording') {
         setPhase('in_progress')
       }
@@ -362,96 +374,155 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
         const details = useExerciseStore.getState().result?.details as ReadAloudScore | undefined
         if (!details) return null
 
-        const mispronounced = details.wordAnalysis?.filter(w => w.status === 'mispronounced') ?? []
+        const problems = details.wordAnalysis?.filter(w => w.status !== 'correct') ?? []
+        const missed = details.missedWords || []
 
-        const patternIcon = (pattern: string) => {
-          if (pattern === 'rising') return '\u2197\uFE0F'
-          if (pattern === 'falling') return '\u2198\uFE0F'
-          return '\u27A1\uFE0F'
-        }
+        // Build side-by-side comparison data
+        const originalWords = content.passage.split(/\s+/)
+        const spokenWords = details.transcription.split(/\s+/)
 
         return (
           <div className="flex flex-col gap-4">
-            {/* a. Overall Coaching */}
+
+            {/* 1. AI Coach Summary */}
             {details.pronunciationCoaching && (
+              <Card variant="aura">
+                <h3 className="text-sm font-semibold text-aura-gold uppercase tracking-wide mb-2">
+                  AI Coach
+                </h3>
+                <p className="text-aura-text leading-relaxed">
+                  {details.pronunciationCoaching}
+                </p>
+              </Card>
+            )}
+
+            {/* Score bars */}
+            <Card variant="default">
+              <div className="grid grid-cols-3 gap-3">
+                <ScoreBar label="Accuracy" value={details.accuracy} />
+                <ScoreBar label="Fluency" value={details.fluency} />
+                <ScoreBar label="Pronunciation" value={details.pronunciation} />
+              </div>
+            </Card>
+
+            {/* AI analysis loading */}
+            {isAnalyzing && (
               <Card variant="glass">
-                <div className="border-l-4 border-aura-gold pl-4">
-                  <p className="text-aura-text text-lg leading-relaxed">
-                    {details.pronunciationCoaching}
-                  </p>
+                <div className="flex items-center gap-3 py-2">
+                  <div className="w-5 h-5 border-2 border-aura-purple border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-aura-text-dim">AI is analyzing your pronunciation in detail...</p>
                 </div>
               </Card>
             )}
 
-            {/* b. Score Bars */}
+            {/* 2. Side-by-Side: Original vs Your Reading */}
             <Card variant="default">
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide">
-                  Detailed Scores
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <ScoreBar label="Accuracy" value={details.accuracy} />
-                  <ScoreBar label="Fluency" value={details.fluency} />
-                  <ScoreBar label="Pronunciation" value={details.pronunciation} />
+              <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
+                What You Said vs Original
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-aura-text-dim mb-1.5 font-medium">Original text:</p>
+                  <p className="text-sm text-aura-text leading-relaxed p-3 rounded-lg bg-aura-surface border border-aura-border">
+                    {originalWords.map((word, i) => {
+                      const lower = word.toLowerCase().replace(/[^\w]/g, '')
+                      const isMissed = missed.some(m => m.toLowerCase() === lower)
+                      const isMispronounced = problems.some(p => p.word.toLowerCase() === lower && p.status === 'mispronounced')
+                      return (
+                        <span key={i}>
+                          <span className={
+                            isMissed ? 'bg-aura-error/20 text-aura-error px-0.5 rounded' :
+                            isMispronounced ? 'bg-aura-gold/20 text-aura-gold px-0.5 rounded' :
+                            ''
+                          }>{word}</span>{' '}
+                        </span>
+                      )
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-aura-text-dim mb-1.5 font-medium">What you said:</p>
+                  <p className="text-sm text-aura-text leading-relaxed p-3 rounded-lg bg-aura-surface border border-aura-border">
+                    {spokenWords.map((word, i) => <span key={i}>{word} </span>)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-aura-text-dim">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-error/60" /> Missed</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-gold/60" /> Mispronounced</span>
                 </div>
               </div>
             </Card>
 
-            {/* h. AI Analysis Loading */}
-            {isAnalyzing && (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <div className="w-8 h-8 border-2 border-aura-purple border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-aura-text-dim">Running AI pronunciation analysis...</p>
-              </div>
-            )}
-
-            {/* c. Word-by-Word Analysis */}
-            {details.wordAnalysis && details.wordAnalysis.length > 0 && (
+            {/* 3. Problems Found - only show words that need work */}
+            {problems.length > 0 && (
               <Card variant="default">
                 <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
-                  Word-by-Word Analysis
+                  Pronunciation Issues ({problems.length})
                 </h3>
-                <div className="max-h-64 overflow-y-auto flex flex-col gap-2">
-                  {details.wordAnalysis.map((w, i) => (
-                    <div key={i} className="flex items-start gap-2 py-1">
-                      {w.status === 'correct' && (
-                        <>
-                          <span className="shrink-0">{'\u2705'}</span>
-                          <span className="text-aura-success font-medium">{w.word}</span>
-                        </>
-                      )}
-                      {w.status === 'mispronounced' && (
-                        <>
-                          <span className="shrink-0">{'\u26A0\uFE0F'}</span>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-aura-gold font-medium">{w.word}</span>
-                            {w.ipa && (
-                              <span className="text-xs text-aura-text-dim">/{w.ipa}/</span>
-                            )}
-                            {w.tip && (
-                              <span className="text-xs text-aura-text-dim italic">{w.tip}</span>
-                            )}
-                            <ListenButton text={w.word} />
+                <div className="flex flex-col gap-3">
+                  {problems.map((w, i) => (
+                    <div key={i} className={`p-3 rounded-xl border ${
+                      w.status === 'missed' ? 'bg-aura-error/5 border-aura-error/20' : 'bg-aura-gold/5 border-aura-gold/20'
+                    }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-lg font-bold text-aura-text">{w.word}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              w.status === 'missed' ? 'bg-aura-error/20 text-aura-error' : 'bg-aura-gold/20 text-aura-gold'
+                            }`}>
+                              {w.status === 'missed' ? 'Skipped' : 'Needs Work'}
+                            </span>
                           </div>
-                        </>
-                      )}
-                      {w.status === 'missed' && (
-                        <>
-                          <span className="shrink-0">{'\u274C'}</span>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-aura-error font-medium">{w.word}</span>
-                            <span className="text-xs text-aura-text-dim">word was skipped</span>
-                          </div>
-                        </>
-                      )}
-                      {w.status === 'added' && (
-                        <>
-                          <span className="shrink-0">{'\u2795'}</span>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-aura-text-dim font-medium">{w.word}</span>
-                            <span className="text-xs text-aura-text-dim">extra word</span>
-                          </div>
-                        </>
+
+                          {w.ipa && (
+                            <p className="text-sm text-aura-text-dim font-mono mb-1">/{w.ipa}/</p>
+                          )}
+
+                          {w.status === 'mispronounced' && w.expected && w.expected !== w.word && (
+                            <p className="text-sm text-aura-text-dim mb-1">
+                              You said: <span className="text-aura-error font-medium">"{w.expected}"</span>
+                            </p>
+                          )}
+
+                          {w.tip && (
+                            <p className="text-sm text-aura-text mt-1 bg-aura-surface/50 p-2 rounded-lg">
+                              💡 {w.tip}
+                            </p>
+                          )}
+                        </div>
+
+                        <ListenButton text={w.word} size="sm" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* 4. Intonation Issues - only show problems */}
+            {details.intonationFeedback && details.intonationFeedback.some(f => f.expectedPattern !== f.actualPattern) && (
+              <Card variant="default">
+                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
+                  Intonation Issues
+                </h3>
+                <div className="flex flex-col gap-3">
+                  {details.intonationFeedback
+                    .filter(f => f.expectedPattern !== f.actualPattern)
+                    .map((item, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-aura-gold/5 border border-aura-gold/20">
+                      <p className="text-sm text-aura-text mb-2 italic">"{item.sentence}"</p>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs px-2 py-1 rounded bg-aura-error/10 text-aura-error">
+                          Your tone: {patternIcon(item.actualPattern)} {item.actualPattern}
+                        </span>
+                        <span className="text-aura-text-dim">→</span>
+                        <span className="text-xs px-2 py-1 rounded bg-aura-success/10 text-aura-success">
+                          Should be: {patternIcon(item.expectedPattern)} {item.expectedPattern}
+                        </span>
+                      </div>
+                      {item.feedback && (
+                        <p className="text-sm text-aura-text-dim">💡 {item.feedback}</p>
                       )}
                     </div>
                   ))}
@@ -459,117 +530,119 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
               </Card>
             )}
 
-            {/* d. Pitch Contour */}
-            {pitchData && (
-              <Card variant="default">
-                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
-                  Pitch Contour
-                </h3>
-                <PitchContour points={smoothPitchContour(pitchData.points)} durationSeconds={pitchData.durationSeconds} />
-              </Card>
-            )}
-
-            {/* e. Intonation Feedback */}
-            {details.intonationFeedback && details.intonationFeedback.length > 0 && (
-              <Card variant="default">
-                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
-                  Intonation
-                </h3>
-                <div className="flex flex-col gap-2">
-                  {details.intonationFeedback.map((item, i) => {
-                    const matches = item.expectedPattern === item.actualPattern
-                    return (
-                      <div key={i} className="flex items-start gap-2 py-1">
-                        <span className="shrink-0">{matches ? '\u2705' : '\u26A0\uFE0F'}</span>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-aura-text text-sm">
-                            {item.sentence}
-                          </span>
-                          <div className="flex items-center gap-2 text-xs text-aura-text-dim">
-                            <span>expected: {patternIcon(item.expectedPattern)} {item.expectedPattern}</span>
-                            <span>actual: {patternIcon(item.actualPattern)} {item.actualPattern}</span>
-                          </div>
-                          {!matches && item.feedback && (
-                            <span className="text-xs text-aura-text-dim italic">{item.feedback}</span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Card>
-            )}
-
-            {/* f. Rhythm Analysis */}
+            {/* 5. Speed & Rhythm - compact */}
             {details.rhythmAnalysis && (
               <Card variant="default">
                 <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
-                  Rhythm & Pacing
+                  Speed & Rhythm
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-aura-text-dim">Words per Minute</span>
-                    <span className="text-lg font-medium text-aura-text">
+                <div className="flex items-center gap-6 mb-3">
+                  <div className="text-center">
+                    <span className={`text-2xl font-bold ${
+                      details.rhythmAnalysis.wpm >= 130 && details.rhythmAnalysis.wpm <= 160
+                        ? 'text-aura-success'
+                        : details.rhythmAnalysis.wpm < 100 ? 'text-aura-error' : 'text-aura-gold'
+                    }`}>
                       {details.rhythmAnalysis.wpm}
-                      {details.rhythmAnalysis.optimalWpmRange && (
-                        <span className="text-xs text-aura-text-dim ml-1">
-                          (optimal: {details.rhythmAnalysis.optimalWpmRange[0]}-{details.rhythmAnalysis.optimalWpmRange[1]})
-                        </span>
-                      )}
                     </span>
+                    <p className="text-xs text-aura-text-dim">WPM</p>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-aura-text-dim">Pauses</span>
-                    <span className="text-lg font-medium text-aura-text">
-                      {details.rhythmAnalysis.pauseCount}
-                    </span>
+                  <div className="flex-1">
+                    <div className="h-2 bg-aura-surface rounded-full relative">
+                      {/* Optimal range indicator */}
+                      <div className="absolute h-full bg-aura-success/20 rounded-full"
+                        style={{
+                          left: `${Math.max(0, (130 / 200) * 100)}%`,
+                          width: `${((160 - 130) / 200) * 100}%`
+                        }}
+                      />
+                      {/* User's position */}
+                      <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-aura-purple border-2 border-white"
+                        style={{ left: `${Math.min(100, (details.rhythmAnalysis.wpm / 200) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-aura-text-dim mt-1">
+                      <span>Too slow</span>
+                      <span className="text-aura-success">130-160 ideal</span>
+                      <span>Too fast</span>
+                    </div>
                   </div>
-                  {details.rhythmAnalysis.fillerWords && details.rhythmAnalysis.fillerWords.length > 0 && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                      <span className="text-xs text-aura-text-dim">Filler Words</span>
-                      <span className="text-sm text-aura-gold">
-                        {details.rhythmAnalysis.fillerWords.join(', ')}
-                      </span>
-                    </div>
-                  )}
-                  {details.rhythmAnalysis.paceVariation !== undefined && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-aura-text-dim">Pace Variation</span>
-                      <span className="text-lg font-medium text-aura-text">
-                        {details.rhythmAnalysis.paceVariation}%
-                      </span>
-                    </div>
-                  )}
                 </div>
                 {details.rhythmAnalysis.feedback && (
-                  <p className="text-sm text-aura-text-dim mt-3">{details.rhythmAnalysis.feedback}</p>
+                  <p className="text-sm text-aura-text-dim">💡 {details.rhythmAnalysis.feedback}</p>
                 )}
               </Card>
             )}
 
-            {/* g. Practice These Words */}
-            {mispronounced.length > 0 && (
-              <Card variant="default">
-                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
-                  Practice These Words
-                </h3>
-                <div className="flex flex-col gap-3">
-                  {mispronounced.map((w, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-aura-surface border border-aura-border">
-                      <div className="flex flex-col gap-0.5 flex-1">
-                        <span className="text-aura-text text-lg font-semibold">{w.word}</span>
-                        {w.ipa && (
-                          <span className="text-aura-text-dim text-sm">/{w.ipa}/</span>
-                        )}
-                        {w.tip && (
-                          <span className="text-aura-text-dim text-xs italic">{w.tip}</span>
-                        )}
-                      </div>
-                      <ListenButton text={w.word} />
-                    </div>
-                  ))}
+            {/* 6. Compare: Your Recording vs Model */}
+            <Card variant="glass">
+              <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-3">
+                Compare Recordings
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Your recording playback */}
+                <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-aura-surface border border-aura-border">
+                  <span className="text-xs text-aura-text-dim font-medium">Your Reading</span>
+                  {audioUrl ? (
+                    <button
+                      onClick={() => {
+                        if (isPlayingRecording && playbackRef.current) {
+                          playbackRef.current.pause()
+                          playbackRef.current.currentTime = 0
+                          setIsPlayingRecording(false)
+                        } else {
+                          const audio = new Audio(audioUrl)
+                          playbackRef.current = audio
+                          setIsPlayingRecording(true)
+                          audio.onended = () => setIsPlayingRecording(false)
+                          audio.play()
+                        }
+                      }}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                        isPlayingRecording
+                          ? 'bg-aura-error animate-pulse'
+                          : 'bg-aura-purple hover:bg-aura-deep-purple'
+                      }`}
+                    >
+                      {isPlayingRecording ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <rect x="6" y="4" width="4" height="16" rx="1" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-aura-text-dim">Not available</span>
+                  )}
                 </div>
-              </Card>
+
+                {/* Model reading */}
+                <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-aura-surface border border-aura-border">
+                  <span className="text-xs text-aura-text-dim font-medium">Model Reading</span>
+                  <div className="h-12 flex items-center">
+                    <ListenButton text={content.passage} size="sm" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-aura-text-dim mt-3 text-center">
+                Play both to hear the difference, then try again.
+              </p>
+            </Card>
+
+            {/* Pitch contour - collapsed by default */}
+            {pitchData && (
+              <details className="group">
+                <summary className="text-xs text-aura-text-dim cursor-pointer hover:text-aura-text transition-colors">
+                  Show pitch contour (advanced)
+                </summary>
+                <Card variant="default" className="mt-2">
+                  <PitchContour points={smoothPitchContour(pitchData.points)} durationSeconds={pitchData.durationSeconds} />
+                </Card>
+              </details>
             )}
           </div>
         )

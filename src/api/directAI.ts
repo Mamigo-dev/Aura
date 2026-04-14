@@ -179,16 +179,24 @@ export async function analyzePronunciationDirect(
   },
   options: DirectAIOptions
 ) {
-  const systemPrompt = `You are an expert English pronunciation coach. Provide a THOROUGH analysis.
+  const systemPrompt = `You are an expert English pronunciation coach. Compare the ORIGINAL TEXT with what was ACTUALLY TRANSCRIBED by speech recognition.
 
-Return JSON only:
+CRITICAL RULES:
+- ONLY analyze words that actually appear in the original text
+- Do NOT invent words or use example words that aren't in the original
+- Compare word-by-word: for each word in the original, check if the transcription has a matching word
+- If the transcription has a different word in that position, it's "mispronounced" (the speaker said the wrong word)
+- If a word from the original doesn't appear in the transcription at all, it's "missed"
+- Mark words as "correct" ONLY if they appear correctly in both original and transcription
+- For mispronounced words, the "expected" field should show what the speaker actually said (the wrong word from the transcription)
+
+Return ONLY valid JSON, no other text:
 {
   "wordAnalysis": [
-    {"word": "the", "expected": "the", "status": "correct"},
-    {"word": "algorithms", "expected": "algorithms", "status": "mispronounced", "ipa": "/ˈæl.ɡə.rɪð.əmz/", "tip": "Stress the second syllable"}
+    {"word": "ORIGINAL_WORD", "expected": "WHAT_SPEAKER_SAID", "status": "correct|mispronounced|missed", "ipa": "/IPA_IF_MISPRONOUNCED/", "tip": "specific pronunciation tip if mispronounced"}
   ],
   "intonationFeedback": [
-    {"sentenceIndex": 0, "sentence": "...", "expectedPattern": "falling", "actualPattern": "flat", "feedback": "This statement should end with a falling tone."}
+    {"sentenceIndex": 0, "sentence": "the actual sentence from original", "expectedPattern": "rising|falling|flat", "actualPattern": "rising|falling|flat", "feedback": "specific feedback"}
   ],
   "rhythmAnalysis": {
     "wpm": ${params.wpm},
@@ -197,9 +205,9 @@ Return JSON only:
     "longPauses": [],
     "fillerWords": [],
     "paceVariation": 50,
-    "feedback": "Your pace feedback here."
+    "feedback": "specific pace feedback based on the actual WPM"
   },
-  "pronunciationCoaching": "Overall coaching paragraphs here."
+  "pronunciationCoaching": "2-3 sentences of specific, actionable coaching for THIS reading"
 }`
 
   const userMessage = `Original text: "${params.originalText}"
