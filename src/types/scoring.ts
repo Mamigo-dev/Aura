@@ -29,6 +29,7 @@ export interface ReadAloudScore {
   mispronounced: MispronunciationDetail[]
   overallFeedback: string
   // AI-powered detailed feedback (optional, populated when AI available)
+  whisperTranscription?: string // More accurate transcript from OpenAI Whisper
   wordAnalysis?: WordAnalysis[]
   intonationFeedback?: IntonationFeedback[]
   rhythmAnalysis?: RhythmAnalysis

@@ -197,31 +197,41 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
       try {
         const openaiKey = getEffectiveKey(profile.preferences, 'gpt')
 
-        // Step 1: Whisper transcription (if we have audio)
+        // Step 1: Whisper transcription (much more accurate than Web Speech API)
         let whisperWords = undefined
+        let whisperText = finalTranscript // fallback to Web Speech API
         if (audioBlob && openaiKey) {
-          const whisperResult = await transcribeAudio(audioBlob, openaiKey)
-          whisperWords = whisperResult.words
+          try {
+            const whisperResult = await transcribeAudio(audioBlob, openaiKey)
+            whisperText = whisperResult.text || finalTranscript
+            whisperWords = whisperResult.words
+          } catch (e) {
+            console.warn('Whisper failed, using Web Speech API transcript:', e)
+          }
         }
 
         // Step 2: Pitch analysis (if we have audio)
         let pitchContour = null
         if (audioBlob) {
-          pitchContour = await analyzePitch(audioBlob)
-          setPitchData(pitchContour)
+          try {
+            pitchContour = await analyzePitch(audioBlob)
+            setPitchData(pitchContour)
+          } catch (e) {
+            console.warn('Pitch analysis failed:', e)
+          }
         }
 
-        // Step 3: AI comprehensive analysis (direct call, no backend needed)
+        // Step 3: AI analysis using Whisper transcript (NOT Web Speech API)
         const activeAI2 = getActiveAI(profile.preferences)
         if (!activeAI2) throw new Error('No AI key available')
         const aiAnalysis = await analyzePronunciationDirect(
           {
             originalText: content.passage,
-            transcription: finalTranscript,
+            transcription: whisperText, // Use Whisper's more accurate transcript
             whisperWords,
             pitchData: pitchContour ? { averageF0: pitchContour.averageF0, minF0: pitchContour.minF0, maxF0: pitchContour.maxF0 } : undefined,
             durationSeconds: elapsedSeconds,
-            wpm: calculateWPM(finalTranscript, elapsedSeconds),
+            wpm: calculateWPM(whisperText, elapsedSeconds),
           },
           activeAI2
         )
@@ -235,11 +245,23 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
         }
         const enhancedDetails: ReadAloudScore = {
           ...details,
+          transcription: whisperText, // Replace Web Speech transcript with Whisper's
+          whisperTranscription: whisperText,
           wordAnalysis: analysis.wordAnalysis,
           intonationFeedback: analysis.intonationFeedback,
           rhythmAnalysis: analysis.rhythmAnalysis,
           pronunciationCoaching: analysis.pronunciationCoaching,
         }
+
+        // Recalculate scores with the more accurate Whisper transcript
+        const whisperAccuracy = wordLevelAccuracy(content.passage, whisperText)
+        const { count: wFillerCount } = countFillerWords(whisperText)
+        const wWpm = calculateWPM(whisperText, elapsedSeconds)
+        const wTotalWords = whisperText.split(/\s+/).filter(Boolean).length
+        const whisperFluency = calculateFluency(wWpm, wFillerCount, wTotalWords, 'reading')
+        enhancedDetails.accuracy = Math.max(enhancedDetails.accuracy, whisperAccuracy)
+        enhancedDetails.fluency = Math.max(enhancedDetails.fluency, whisperFluency)
+        enhancedDetails.missedWords = findMissedWords(content.passage, whisperText)
         const enhancedResult: ExerciseResult = { ...result, details: enhancedDetails }
         setResult(enhancedResult)
       } catch (err) {
@@ -441,9 +463,16 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-aura-text-dim mb-1.5 font-medium">What you said:</p>
+                  <p className="text-xs text-aura-text-dim mb-1.5 font-medium">
+                    What you said:
+                    {details.whisperTranscription && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-aura-purple/20 text-aura-purple">
+                        Whisper AI
+                      </span>
+                    )}
+                  </p>
                   <p className="text-sm text-aura-text leading-relaxed p-3 rounded-lg bg-aura-surface border border-aura-border">
-                    {spokenWords.map((word, i) => <span key={i}>{word} </span>)}
+                    {(details.whisperTranscription || details.transcription).split(/\s+/).map((word, i) => <span key={i}>{word} </span>)}
                   </p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-aura-text-dim">
@@ -633,17 +662,9 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
               </p>
             </Card>
 
-            {/* Pitch contour - collapsed by default */}
-            {pitchData && (
-              <details className="group">
-                <summary className="text-xs text-aura-text-dim cursor-pointer hover:text-aura-text transition-colors">
-                  Show pitch contour (advanced)
-                </summary>
-                <Card variant="default" className="mt-2">
-                  <PitchContour points={smoothPitchContour(pitchData.points)} durationSeconds={pitchData.durationSeconds} />
-                </Card>
-              </details>
-            )}
+            {/* Pitch contour removed — Intonation Issues section already gives
+                actionable feedback in plain language. The raw pitch chart
+                is unreadable for most users. */}
           </div>
         )
       })()}
