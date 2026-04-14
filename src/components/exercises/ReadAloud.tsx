@@ -179,6 +179,43 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
       }
     }
 
+    // If Azure key exists, do Azure analysis BEFORE showing results (no score flicker)
+    const azureKey = profile ? getEffectiveKey(profile.preferences, 'azure') : ''
+    if (audioBlob && azureKey && profile) {
+      setIsAnalyzing(true)
+      try {
+        const azureRegion = profile.preferences.azureRegion || 'eastus'
+        const azure = await assessPronunciation(audioBlob, content.passage, {
+          subscriptionKey: azureKey,
+          region: azureRegion,
+        })
+        setAzureResult(azure)
+
+        // Use Azure scores as primary
+        details.accuracy = azure.accuracyScore
+        details.fluency = azure.fluencyScore
+        details.pronunciation = azure.pronunciationScore
+
+        details.wordAnalysis = azure.words.map(w => ({
+          word: w.word,
+          expected: w.word,
+          status: w.errorType === 'None'
+            ? (w.accuracyScore >= 80 ? 'correct' as const : 'accent_issue' as const)
+            : w.errorType === 'Omission' ? 'missed' as const
+            : w.errorType === 'Mispronunciation' ? 'mispronounced' as const
+            : 'accent_issue' as const,
+          confidence: w.accuracyScore / 100,
+          offsetMs: w.offsetMs,
+          durationMs: w.durationMs,
+          tip: w.accuracyScore < 80
+            ? `Accuracy: ${w.accuracyScore}%. Focus on clear pronunciation of each syllable.`
+            : undefined,
+        }))
+      } catch (e) {
+        console.warn('Azure Pronunciation Assessment failed:', e)
+      }
+    }
+
     const overallScore = calculateOverallScore('read_aloud', details)
 
     const result: ExerciseResult = {
@@ -194,54 +231,14 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
 
     setResult(result)
 
-    // If AI available, do comprehensive analysis in background
+    // Then do GPT analysis in background (enriches with IPA, tips, coaching)
     if (useAI && profile) {
-      setIsAnalyzing(true)
+      if (!isAnalyzing) setIsAnalyzing(true)
       try {
         const openaiKey = getEffectiveKey(profile.preferences, 'gpt')
-        const azureKey = getEffectiveKey(profile.preferences, 'azure')
-        const azureRegion = profile.preferences.azureRegion || 'eastus'
 
-        // Step 0: Azure Pronunciation Assessment (real audio analysis!)
-        if (audioBlob && azureKey) {
-          try {
-            const azure = await assessPronunciation(audioBlob, content.passage, {
-              subscriptionKey: azureKey,
-              region: azureRegion,
-            })
-            setAzureResult(azure)
-
-            // Override scores with Azure's real scores
-            details.accuracy = azure.accuracyScore
-            details.fluency = azure.fluencyScore
-            details.pronunciation = azure.pronunciationScore
-
-            // Build word analysis from Azure data
-            details.wordAnalysis = azure.words.map(w => ({
-              word: w.word,
-              expected: w.word,
-              status: w.errorType === 'None'
-                ? (w.accuracyScore >= 80 ? 'correct' as const : 'accent_issue' as const)
-                : w.errorType === 'Omission' ? 'missed' as const
-                : w.errorType === 'Mispronunciation' ? 'mispronounced' as const
-                : 'accent_issue' as const,
-              confidence: w.accuracyScore / 100,
-              offsetMs: w.offsetMs,
-              durationMs: w.durationMs,
-              tip: w.accuracyScore < 80
-                ? `Accuracy: ${w.accuracyScore}%. Focus on clear pronunciation of each syllable.`
-                : undefined,
-            }))
-
-            // Recalculate overall score with Azure data
-            const azureOverall = calculateOverallScore('read_aloud', details)
-            result.score = azureOverall
-            result.passed = azureOverall >= exercise.passingScore
-            setResult({ ...result, details: { ...details } })
-          } catch (e) {
-            console.warn('Azure Pronunciation Assessment failed:', e)
-          }
-        }
+        // Azure was already done above (before showing results)
+        // Now continue with Whisper + GPT enrichment
 
         // Step 1: Whisper transcription (much more accurate than Web Speech API)
         let whisperWords = undefined
@@ -289,16 +286,37 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           rhythmAnalysis?: RhythmAnalysis
           pronunciationCoaching?: string
           connectedSpeech?: string
+          trainingPlan?: import('../../types/scoring').TrainingPlan
         }
+        // Merge GPT analysis with Azure word data (keep Azure timestamps + scores)
+        let mergedWordAnalysis = details.wordAnalysis // Azure data with timestamps
+        if (analysis.wordAnalysis && mergedWordAnalysis) {
+          // Enrich Azure words with GPT's IPA and tips
+          const gptMap = new Map(
+            (analysis.wordAnalysis as WordAnalysis[]).map(w => [w.word.toLowerCase(), w])
+          )
+          mergedWordAnalysis = mergedWordAnalysis.map(azureWord => {
+            const gptWord = gptMap.get(azureWord.word.toLowerCase())
+            return {
+              ...azureWord,
+              ipa: gptWord?.ipa || azureWord.ipa,
+              tip: gptWord?.tip || azureWord.tip,
+            }
+          })
+        } else if (analysis.wordAnalysis) {
+          mergedWordAnalysis = analysis.wordAnalysis as WordAnalysis[]
+        }
+
         const enhancedDetails: ReadAloudScore = {
           ...details,
           transcription: whisperText,
           whisperTranscription: whisperText,
-          wordAnalysis: analysis.wordAnalysis,
-          intonationFeedback: analysis.intonationFeedback,
-          rhythmAnalysis: analysis.rhythmAnalysis,
+          wordAnalysis: mergedWordAnalysis,
+          intonationFeedback: analysis.intonationFeedback as IntonationFeedback[] | undefined,
+          rhythmAnalysis: analysis.rhythmAnalysis as RhythmAnalysis | undefined,
           pronunciationCoaching: analysis.pronunciationCoaching,
           connectedSpeech: analysis.connectedSpeech,
+          trainingPlan: analysis.trainingPlan,
         }
 
         // Recalculate accuracy and fluency with Whisper transcript
@@ -725,6 +743,41 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                 {details.rhythmAnalysis.feedback && (
                   <p className="text-sm text-aura-text-dim">💡 {details.rhythmAnalysis.feedback}</p>
                 )}
+              </Card>
+            )}
+
+            {/* Training Plan */}
+            {details.trainingPlan && (
+              <Card variant="aura">
+                <h3 className="text-sm font-semibold text-aura-gold uppercase tracking-wide mb-2">
+                  Your Training Plan
+                </h3>
+                <p className="text-sm text-aura-text mb-4">{details.trainingPlan.summary}</p>
+
+                <div className="flex items-center gap-4 mb-4 text-xs text-aura-text-dim">
+                  <span>⏱ {details.trainingPlan.dailyPracticeMinutes} min/day</span>
+                  <span>📅 ~{details.trainingPlan.estimatedWeeksToImprove} weeks to improve</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {details.trainingPlan.exercises.map((ex, i) => (
+                    <div key={i} className="p-3 rounded-lg bg-aura-surface/50 border border-aura-border/50">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold text-aura-text">{ex.name}</span>
+                        {ex.targetSound && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-aura-purple/20 text-aura-purple font-mono">
+                            {ex.targetSound}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-aura-text-dim mb-1">{ex.description}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-aura-text-dim">
+                        <span>🔄 {ex.frequency}</span>
+                        <span>⏱ {ex.duration}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
 

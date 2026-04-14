@@ -35,9 +35,23 @@ export interface ReadAloudScore {
   rhythmAnalysis?: RhythmAnalysis
   pronunciationCoaching?: string
   connectedSpeech?: string
+  trainingPlan?: TrainingPlan
 }
 
-// Re-export for backward compatibility - old code uses 'added' which still works
+export interface TrainingPlan {
+  summary: string
+  exercises: TrainingExercise[]
+  dailyPracticeMinutes: number
+  estimatedWeeksToImprove: number
+}
+
+export interface TrainingExercise {
+  name: string
+  description: string
+  targetSound?: string // e.g., "/θ/", "/r/"
+  frequency: string // e.g., "3x daily", "every session"
+  duration: string // e.g., "5 minutes"
+}
 
 export interface MispronunciationDetail {
   word: string

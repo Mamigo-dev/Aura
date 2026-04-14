@@ -219,8 +219,17 @@ Return ONLY valid JSON:
     "paceVariation": 50,
     "feedback": "rhythm feedback: is the speech too flat/monotone? Are stressed syllables properly emphasized?"
   },
-  "connectedSpeech": "Feedback on linking between words, reductions, and natural flow. E.g., 'grabbed a' should link as 'grab-duh', 'going to' can reduce to 'gonna' in casual speech.",
-  "pronunciationCoaching": "2-3 paragraphs of personalized coaching. Be specific: which sounds to practice, which words to focus on, what exercises would help. Mention specific phonemes like /θ/, /ð/, /r/, /l/ if relevant."
+  "connectedSpeech": "Feedback on linking, reductions, and natural flow.",
+  "pronunciationCoaching": "2-3 paragraphs of personalized coaching.",
+  "trainingPlan": {
+    "summary": "1-2 sentences summarizing what to focus on",
+    "exercises": [
+      {"name": "Minimal Pair Drill", "description": "Practice distinguishing and producing similar sounds", "targetSound": "/θ/ vs /s/", "frequency": "2x daily", "duration": "5 minutes"},
+      {"name": "Shadow Reading", "description": "Listen to model audio and speak along simultaneously", "frequency": "every session", "duration": "3 minutes"}
+    ],
+    "dailyPracticeMinutes": 15,
+    "estimatedWeeksToImprove": 3
+  }
 }`
 
   const userMessage = `Original text: "${params.originalText}"
