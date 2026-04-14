@@ -5,7 +5,7 @@ import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { wordLevelAccuracy, countFillerWords, calculateWPM, calculateFluency, findMissedWords } from '../../lib/scoring'
-import { shouldUseAI } from '../../lib/ai-status'
+import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
 import { scorePronunciation } from '../../api/client'
 import { useSpeechRecognition } from '../speech/useSpeechRecognition'
 import { Microphone } from '../speech/Microphone'
@@ -97,7 +97,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           },
           {
             provider: profile.preferences.aiProvider,
-            apiKey: profile.preferences.apiKeys?.[profile.preferences.aiProvider],
+            apiKey: getEffectiveKey(profile.preferences, profile.preferences.aiProvider),
           }
         ) as ReadAloudScore
 

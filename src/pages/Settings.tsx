@@ -140,6 +140,10 @@ export default function Settings() {
                     Provider: <span className="text-aura-text font-medium">{status.aiProvider === 'claude' ? 'Claude' : 'GPT'}</span>
                     {' '}&middot;{' '}
                     Scoring: <span className="text-aura-success font-medium">AI-Powered</span>
+                    {' '}&middot;{' '}
+                    Key: <span className="text-aura-text font-medium">
+                      {status.keySource === 'env' ? '.env (built-in)' : 'User configured'}
+                    </span>
                   </p>
                   {status.searchProvidersConnected.length > 0 && (
                     <p>
@@ -372,10 +376,10 @@ export default function Settings() {
               onChange={handleSpeechRateChange}
               className="w-full accent-aura-purple"
             />
-            <div className="flex justify-between text-xs text-aura-text-dim/60">
-              <span>Slow</span>
-              <span>Normal</span>
-              <span>Fast</span>
+            <div className="relative text-xs text-aura-text-dim/60 h-4">
+              <span className="absolute left-0">Slow</span>
+              <span className="absolute" style={{ left: `${((1.0 - 0.5) / (2.0 - 0.5)) * 100}%`, transform: 'translateX(-50%)' }}>Normal</span>
+              <span className="absolute right-0">Fast</span>
             </div>
           </div>
         </Card>

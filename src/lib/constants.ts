@@ -30,3 +30,16 @@ export const SPEECH_RATES = {
 }
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://aura-api.workers.dev'
+
+// Pre-configured API keys from .env (for personal/development use)
+// These are bundled into the JS - only use for personal deployments
+export const ENV_KEYS = {
+  claude: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+  gpt: import.meta.env.VITE_OPENAI_API_KEY || '',
+  brave: import.meta.env.VITE_BRAVE_SEARCH_API_KEY || '',
+  newsapi: import.meta.env.VITE_NEWSAPI_API_KEY || '',
+  perplexity: import.meta.env.VITE_PERPLEXITY_API_KEY || '',
+  google: import.meta.env.VITE_GOOGLE_SEARCH_API_KEY || '',
+} as Record<string, string>
+
+export const ENV_TTS_VOICE = import.meta.env.VITE_TTS_VOICE || 'nova'

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { UserProfile, LevelAssessment, DailyProgress, AIProvider, SearchProvider } from '../types/user'
+import type { UserProfile, LevelAssessment, DailyProgress, AIProvider, SearchProvider, UserMode } from '../types/user'
+import type { ImbalanceAssessment } from '../types/professional'
 import { createDefaultProfile } from '../types/user'
 import { saveUserProfile, getUserProfile, saveDailyProgress, getDailyProgress } from '../lib/db'
 
@@ -13,8 +14,11 @@ interface UserState {
   loadProfile: () => Promise<void>
   createProfile: () => Promise<UserProfile>
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>
+  setMode: (mode: UserMode) => Promise<void>
   setLevel: (assessment: LevelAssessment) => Promise<void>
+  setImbalanceAssessment: (assessment: ImbalanceAssessment) => Promise<void>
   setSelectedCategories: (categories: string[]) => Promise<void>
+  setSelectedScenes: (scenes: string[]) => Promise<void>
   setAIProvider: (provider: AIProvider) => Promise<void>
   setSearchProviders: (providers: SearchProvider[]) => Promise<void>
   setApiKey: (provider: string, key: string) => Promise<void>
@@ -35,9 +39,14 @@ export const useUserStore = create<UserState>((set, get) => ({
   loadProfile: async () => {
     set({ isLoading: true })
     const profile = await getUserProfile()
+    const onboarded = profile
+      ? profile.userMode === 'professional'
+        ? !!profile.imbalanceAssessment
+        : !!profile.assessment
+      : false
     set({
       profile: profile || null,
-      isOnboarded: !!profile?.assessment,
+      isOnboarded: onboarded,
       isLoading: false,
     })
     if (profile) {
@@ -72,8 +81,27 @@ export const useUserStore = create<UserState>((set, get) => ({
     set({ profile: updated, isOnboarded: true })
   },
 
+  setMode: async (mode) => {
+    await get().updateProfile({ userMode: mode })
+  },
+
+  setImbalanceAssessment: async (assessment) => {
+    const { profile } = get()
+    if (!profile) return
+    const updated = {
+      ...profile,
+      imbalanceAssessment: assessment,
+    }
+    await saveUserProfile(updated)
+    set({ profile: updated, isOnboarded: true })
+  },
+
   setSelectedCategories: async (categories) => {
     await get().updateProfile({ selectedCategories: categories })
+  },
+
+  setSelectedScenes: async (scenes) => {
+    await get().updateProfile({ selectedScenes: scenes })
   },
 
   setAIProvider: async (provider) => {

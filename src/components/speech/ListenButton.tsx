@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useUserStore } from '../../stores/userStore'
-import { shouldUseAI } from '../../lib/ai-status'
+import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
 import { speakWithAI, speakWithBrowser, type TTSVoice } from '../../lib/tts'
 import { Button } from '../ui/Button'
 
@@ -18,7 +18,7 @@ export function ListenButton({ text, size = 'sm', className = '', voice }: Liste
 
   const profile = useUserStore((s) => s.profile)
   const useAI = profile ? shouldUseAI(profile.preferences) : false
-  const openaiKey = profile?.preferences.apiKeys?.gpt
+  const openaiKey = profile ? getEffectiveKey(profile.preferences, 'gpt') : ''
 
   const handleListen = useCallback(async () => {
     if (isPlaying) {

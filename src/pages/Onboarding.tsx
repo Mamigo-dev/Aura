@@ -4,15 +4,28 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { GradientText } from '../components/ui/GradientText'
 import { ASSESSMENT_QUESTIONS, type AssessmentQuestion } from '../data/assessmentQuestions'
+import { PRO_ASSESSMENT_QUESTIONS } from '../data/proAssessmentQuestions'
 import { CATEGORIES } from '../data/categories'
+import { PRO_CATEGORIES } from '../data/proCategories'
 import { useUserStore } from '../stores/userStore'
-import type { LevelAssessment, EnglishLevel, WeakArea } from '../types/user'
+import type { LevelAssessment, EnglishLevel, WeakArea, UserMode } from '../types/user'
+import {
+  type ImbalanceProfile,
+  type ImbalanceAssessment,
+  type ImbalanceDimension,
+  IMBALANCE_LABELS,
+  createDefaultImbalanceProfile,
+} from '../types/professional'
+import {
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  Radar, ResponsiveContainer,
+} from 'recharts'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type OnboardingStep = 'welcome' | 'assessment' | 'results' | 'categories'
+type OnboardingStep = 'welcome' | 'mode_select' | 'assessment' | 'results' | 'categories'
 
 // ---------------------------------------------------------------------------
 // Helpers – client-side scoring
@@ -528,83 +541,474 @@ function CategorySelection({
 }
 
 // ---------------------------------------------------------------------------
+// Mode Selection
+// ---------------------------------------------------------------------------
+
+function ModeSelection({ onSelect }: { onSelect: (mode: UserMode) => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full">
+      <div className="text-center mb-10 animate-fade-in-up">
+        <h2 className="text-3xl font-bold text-aura-text mb-2">
+          Which describes <GradientText className="text-3xl font-bold">you</GradientText> better?
+        </h2>
+        <p className="text-aura-text-dim">
+          This helps us personalize your learning experience.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4 w-full">
+        <Card
+          variant="gradient"
+          padding="lg"
+          hoverable
+          onClick={() => onSelect('general')}
+          className="animate-fade-in-up"
+        >
+          <div className="flex items-start gap-4">
+            <span className="text-4xl">📚</span>
+            <div>
+              <h3 className="text-lg font-semibold text-aura-text mb-1">General Learner</h3>
+              <p className="text-sm text-aura-text-dim leading-relaxed">
+                I want to improve my overall English skills — reading, writing, speaking, and listening.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card
+          variant="gradient"
+          padding="lg"
+          hoverable
+          onClick={() => onSelect('professional')}
+          className="animate-fade-in-up"
+          style={{ animationDelay: '100ms' }}
+        >
+          <div className="flex items-start gap-4">
+            <span className="text-4xl">💼</span>
+            <div>
+              <h3 className="text-lg font-semibold text-aura-text mb-1">Professional</h3>
+              <p className="text-sm text-aura-text-dim leading-relaxed">
+                I know many advanced and technical words, but I struggle with casual conversation,
+                small talk, and speaking naturally in social situations.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Professional Imbalance Assessment
+// ---------------------------------------------------------------------------
+
+function ProAssessmentStep({ onComplete }: { onComplete: (assessment: ImbalanceAssessment) => void }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, { value: string; index?: number }>>({})
+  const [textInput, setTextInput] = useState('')
+  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+
+  const questions = PRO_ASSESSMENT_QUESTIONS
+  const question = questions[currentIndex]
+  const progress = (currentIndex / questions.length) * 100
+
+  const handleMCSelect = useCallback((optionIndex: number) => {
+    if (isTransitioning) return
+    setSelectedOption(optionIndex)
+    setIsTransitioning(true)
+
+    const newAnswers = { ...answers, [question.id]: { value: question.options?.[optionIndex]?.text || '', index: optionIndex } }
+    setAnswers(newAnswers)
+
+    setTimeout(() => advance(newAnswers), 600)
+  }, [answers, currentIndex, isTransitioning, question])
+
+  const handleTextSubmit = useCallback(() => {
+    if (!textInput.trim()) return
+    const newAnswers = { ...answers, [question.id]: { value: textInput.trim() } }
+    setAnswers(newAnswers)
+    setTextInput('')
+    advance(newAnswers)
+  }, [answers, question, textInput])
+
+  const advance = useCallback((newAnswers: typeof answers) => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1)
+      setSelectedOption(null)
+      setIsTransitioning(false)
+    } else {
+      // Score the assessment
+      const profile = scoreProAssessment(newAnswers)
+      const primaryGaps = (Object.entries(profile) as [ImbalanceDimension, number][])
+        .filter(([, v]) => v < 50)
+        .sort((a, b) => a[1] - b[1])
+        .map(([k]) => k)
+
+      const recommendations = primaryGaps.map((gap) => {
+        const labels: Record<string, string> = {
+          casualConversation: 'Practice everyday conversational phrases and informal expressions.',
+          socialSmallTalk: 'Work on small talk skills for social situations.',
+          impromptuSpeaking: 'Train spontaneous responses to unexpected questions.',
+          humorSarcasm: 'Learn to recognize and use humor, irony, and sarcasm.',
+          registerFlexibility: 'Practice switching between formal and casual registers.',
+          culturalReferences: 'Learn common idioms, slang, and cultural expressions.',
+        }
+        return labels[gap] || `Improve your ${IMBALANCE_LABELS[gap]}.`
+      })
+
+      onComplete({
+        completedAt: new Date().toISOString(),
+        profile,
+        primaryGaps,
+        anxietyScenes: [],
+        recommendations,
+      })
+    }
+  }, [currentIndex, questions.length, onComplete])
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full">
+      <div className="w-full mb-8 animate-fade-in-up">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-semibold text-aura-text">Imbalance Assessment</h2>
+          <span className="text-sm text-aura-text-dim">{currentIndex + 1} / {questions.length}</span>
+        </div>
+        <div className="w-full h-2 bg-aura-surface rounded-full overflow-hidden">
+          <div className="h-full bg-aura-purple rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div key={question.id} className="w-full animate-fade-in-up">
+        <Card variant="gradient" padding="lg" className="mb-6">
+          <p className="text-lg font-medium text-aura-text leading-relaxed">{question.prompt}</p>
+          <span className="inline-block mt-3 text-xs font-medium text-aura-text-dim uppercase tracking-wider px-2 py-1 rounded-md bg-aura-surface">
+            {IMBALANCE_LABELS[question.dimension as ImbalanceDimension] || question.dimension}
+          </span>
+        </Card>
+
+        {question.type === 'multiple_choice' && question.options && (
+          <div className="flex flex-col gap-3">
+            {question.options.map((opt, idx) => {
+              const isSelected = selectedOption === idx
+              const isCorrect = isSelected && idx === question.correctIndex
+              const isWrong = isSelected && idx !== question.correctIndex
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleMCSelect(idx)}
+                  disabled={isTransitioning}
+                  className={`w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 ${
+                    isCorrect ? 'border-green-500 bg-green-500/10 text-green-400'
+                    : isWrong ? 'border-red-500 bg-red-500/10 text-red-400'
+                    : 'border-aura-border bg-aura-surface hover:border-aura-purple/50 text-aura-text'
+                  } ${isTransitioning && !isSelected ? 'opacity-50' : ''}`}
+                >
+                  <span className="flex items-center gap-3">
+                    <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold ${
+                      isSelected ? (isCorrect ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-aura-midnight text-aura-text-dim'
+                    }`}>{String.fromCharCode(65 + idx)}</span>
+                    {opt.text}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {(question.type === 'rewrite' || question.type === 'respond') && (
+          <div className="flex flex-col gap-4">
+            {question.formalInput && (
+              <Card variant="default" padding="sm">
+                <p className="text-xs text-aura-text-dim mb-1">Original (formal):</p>
+                <p className="text-aura-text italic">"{question.formalInput}"</p>
+              </Card>
+            )}
+            {question.scenario && (
+              <Card variant="default" padding="sm">
+                <p className="text-xs text-aura-text-dim mb-1">Scenario:</p>
+                <p className="text-aura-text">{question.scenario}</p>
+              </Card>
+            )}
+            <textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Type your response..."
+              rows={3}
+              className="w-full bg-aura-surface border border-aura-border rounded-xl px-4 py-3 text-aura-text placeholder-aura-text-dim/40 focus:outline-none focus:border-aura-purple/50 resize-none"
+            />
+            <Button variant="gold" onClick={handleTextSubmit} disabled={!textInput.trim()}>
+              Submit
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function scoreProAssessment(answers: Record<string, { value: string; index?: number }>): ImbalanceProfile {
+  const profile = createDefaultImbalanceProfile()
+  const dimScores: Record<string, { correct: number; total: number }> = {}
+
+  for (const q of PRO_ASSESSMENT_QUESTIONS) {
+    const dim = q.dimension
+    if (!dimScores[dim]) dimScores[dim] = { correct: 0, total: 0 }
+    dimScores[dim].total++
+
+    const answer = answers[q.id]
+    if (!answer) continue
+
+    if (q.type === 'multiple_choice' && answer.index !== undefined) {
+      if (answer.index === q.correctIndex) dimScores[dim].correct++
+    } else if (q.type === 'rewrite' || q.type === 'respond') {
+      // For text answers, give partial credit based on length and casualness
+      const text = answer.value.toLowerCase()
+      const isCasual = !text.includes('would like') && !text.includes('furthermore') &&
+        !text.includes('hereby') && text.length < 200
+      dimScores[dim].correct += isCasual ? 0.8 : 0.3
+    }
+  }
+
+  for (const [dim, { correct, total }] of Object.entries(dimScores)) {
+    if (total > 0 && dim in profile) {
+      (profile as unknown as Record<string, number>)[dim] = Math.round((correct / total) * 100)
+    }
+  }
+
+  return profile
+}
+
+// ---------------------------------------------------------------------------
+// Professional Assessment Results (Radar Chart)
+// ---------------------------------------------------------------------------
+
+function ProAssessmentResults({
+  assessment,
+  onContinue,
+}: {
+  assessment: ImbalanceAssessment
+  onContinue: () => void
+}) {
+  const radarData = (Object.entries(assessment.profile) as [ImbalanceDimension, number][]).map(
+    ([key, value]) => ({
+      dimension: IMBALANCE_LABELS[key],
+      score: value,
+      fullMark: 100,
+    })
+  )
+
+  return (
+    <div className="flex flex-col items-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full py-12">
+      <div className="animate-fade-in-up text-center mb-6">
+        <h2 className="text-2xl font-bold text-aura-text mb-2">Your Imbalance Profile</h2>
+        <p className="text-aura-text-dim">This shows where your English is strong and where it needs work.</p>
+      </div>
+
+      {/* Radar Chart */}
+      <Card variant="glass" padding="md" className="w-full mb-6 animate-fade-in-up">
+        <ResponsiveContainer width="100%" height={300}>
+          <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
+            <PolarGrid stroke="#2A2560" />
+            <PolarAngleAxis dataKey="dimension" tick={{ fill: '#9B97B8', fontSize: 11 }} />
+            <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar
+              name="Score"
+              dataKey="score"
+              stroke="#7B2FBE"
+              fill="rgba(123, 47, 190, 0.3)"
+              strokeWidth={2}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Primary Gaps */}
+      {assessment.primaryGaps.length > 0 && (
+        <Card variant="glass" padding="lg" className="w-full mb-6 animate-fade-in-up">
+          <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-3">
+            Your Gaps (Focus Areas)
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {assessment.primaryGaps.map((gap) => (
+              <span key={gap} className="px-3 py-1.5 rounded-lg bg-aura-error/10 text-aura-error text-sm font-medium border border-aura-error/20">
+                {IMBALANCE_LABELS[gap]}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Recommendations */}
+      {assessment.recommendations.length > 0 && (
+        <Card variant="glass" padding="lg" className="w-full mb-8 animate-fade-in-up">
+          <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-3">
+            Recommendations
+          </h3>
+          <ul className="space-y-2">
+            {assessment.recommendations.map((rec, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-aura-text">
+                <span className="text-aura-gold mt-0.5">&#9679;</span>
+                {rec}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <Button variant="gold" size="lg" onClick={onContinue}>
+        Choose Your Scenes
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Professional Scene Selection
+// ---------------------------------------------------------------------------
+
+function SceneSelection({ onComplete }: { onComplete: (sceneIds: string[]) => void }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  return (
+    <div className="flex flex-col items-center min-h-[80vh] px-6 max-w-3xl mx-auto w-full py-12">
+      <div className="text-center mb-8 animate-fade-in-up">
+        <h2 className="text-3xl font-bold text-aura-text mb-2">
+          Choose Your <GradientText className="text-3xl font-bold">Scenes</GradientText>
+        </h2>
+        <p className="text-aura-text-dim">Select scenarios you want to practice. Pick at least 2.</p>
+      </div>
+
+      <div className="w-full space-y-6 mb-10">
+        {PRO_CATEGORIES.map((tier) => (
+          <div key={tier.id} className="animate-fade-in-up">
+            <h3 className="text-sm font-semibold text-aura-text-dim uppercase tracking-wide mb-3">
+              {tier.icon} {tier.label}
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {tier.children?.map((scene) => {
+                const isSelected = selected.has(scene.id)
+                return (
+                  <Card
+                    key={scene.id}
+                    variant={isSelected ? 'gradient' : 'default'}
+                    padding="sm"
+                    hoverable
+                    onClick={() => toggle(scene.id)}
+                    className={`relative ${isSelected ? 'ring-2 ring-aura-purple' : ''}`}
+                  >
+                    {isSelected && (
+                      <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-aura-purple flex items-center justify-center text-white text-[10px]">
+                        &#10003;
+                      </span>
+                    )}
+                    <span className="text-lg block mb-1">{scene.icon}</span>
+                    <h4 className="text-sm font-medium text-aura-text">{scene.label}</h4>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-sm text-aura-text-dim">{selected.size} of 2 minimum selected</p>
+        <Button variant="gold" size="lg" disabled={selected.size < 2} onClick={() => onComplete(Array.from(selected))}>
+          Start Training
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Onboarding Page
 // ---------------------------------------------------------------------------
 
 export default function Onboarding() {
   const [step, setStep] = useState<OnboardingStep>('welcome')
+  const [mode, setMode] = useState<UserMode>('general')
   const [assessment, setAssessment] = useState<LevelAssessment | null>(null)
+  const [proAssessment, setProAssessment] = useState<ImbalanceAssessment | null>(null)
 
   const navigate = useNavigate()
-  const { createProfile, setLevel, setSelectedCategories } = useUserStore()
+  const {
+    createProfile, setLevel, setSelectedCategories,
+    setMode: saveMode, setImbalanceAssessment, setSelectedScenes,
+  } = useUserStore()
 
-  const handleAssessmentComplete = useCallback(
-    (result: LevelAssessment) => {
-      setAssessment(result)
-      setStep('results')
-    },
-    [],
-  )
+  const handleModeSelect = useCallback((selectedMode: UserMode) => {
+    setMode(selectedMode)
+    setStep('assessment')
+  }, [])
 
-  const handleCategoriesComplete = useCallback(
-    async (categoryIds: string[]) => {
-      // Create profile first
-      await createProfile()
+  const handleAssessmentComplete = useCallback((result: LevelAssessment) => {
+    setAssessment(result)
+    setStep('results')
+  }, [])
 
-      // Save assessment
-      if (assessment) {
-        await setLevel(assessment)
-      }
+  const handleProAssessmentComplete = useCallback((result: ImbalanceAssessment) => {
+    setProAssessment(result)
+    setStep('results')
+  }, [])
 
-      // Save selected categories
-      await setSelectedCategories(categoryIds)
+  const handleGeneralComplete = useCallback(async (categoryIds: string[]) => {
+    await createProfile()
+    await saveMode('general')
+    if (assessment) await setLevel(assessment)
+    await setSelectedCategories(categoryIds)
+    navigate('/')
+  }, [assessment, createProfile, saveMode, setLevel, setSelectedCategories, navigate])
 
-      // Navigate to home
-      navigate('/')
-    },
-    [assessment, createProfile, setLevel, setSelectedCategories, navigate],
-  )
+  const handleProComplete = useCallback(async (sceneIds: string[]) => {
+    await createProfile()
+    await saveMode('professional')
+    if (proAssessment) await setImbalanceAssessment(proAssessment)
+    await setSelectedScenes(sceneIds)
+    navigate('/')
+  }, [proAssessment, createProfile, saveMode, setImbalanceAssessment, setSelectedScenes, navigate])
 
-  // Step indicator
   const steps: { key: OnboardingStep; label: string }[] = [
     { key: 'welcome', label: 'Welcome' },
+    { key: 'mode_select', label: 'Mode' },
     { key: 'assessment', label: 'Assessment' },
     { key: 'results', label: 'Results' },
-    { key: 'categories', label: 'Interests' },
+    { key: 'categories', label: mode === 'professional' ? 'Scenes' : 'Interests' },
   ]
   const currentStepIndex = steps.findIndex((s) => s.key === step)
 
   return (
     <div className="min-h-screen bg-aura-midnight text-aura-text relative overflow-hidden">
-      {/* Background gradient orbs */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-aura-purple/5 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-aura-purple/5 blur-[120px]" />
       </div>
 
-      {/* Top step indicator */}
-      {step !== 'welcome' && (
+      {step !== 'welcome' && step !== 'mode_select' && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-aura-midnight/80 backdrop-blur-md border-b border-aura-border/50">
           <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              {steps.map((s, i) => (
+              {steps.filter(s => s.key !== 'mode_select').map((s, i) => (
                 <div key={s.key} className="flex items-center gap-2">
-                  <span
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                      i < currentStepIndex
-                        ? 'bg-aura-purple text-white'
-                        : i === currentStepIndex
-                          ? 'bg-aura-purple/20 text-aura-purple border border-aura-purple'
-                          : 'bg-aura-surface text-aura-text-dim'
-                    }`}
-                  >
-                    {i < currentStepIndex ? '\u2713' : i + 1}
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+                    i < currentStepIndex - 1 ? 'bg-aura-purple text-white'
+                    : i === currentStepIndex - 1 ? 'bg-aura-purple/20 text-aura-purple border border-aura-purple'
+                    : 'bg-aura-surface text-aura-text-dim'
+                  }`}>
+                    {i < currentStepIndex - 1 ? '\u2713' : i + 1}
                   </span>
-                  <span
-                    className={`text-sm hidden sm:inline ${
-                      i === currentStepIndex ? 'text-aura-text' : 'text-aura-text-dim'
-                    }`}
-                  >
+                  <span className={`text-sm hidden sm:inline ${i === currentStepIndex - 1 ? 'text-aura-text' : 'text-aura-text-dim'}`}>
                     {s.label}
                   </span>
                 </div>
@@ -614,25 +1018,37 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* Main content */}
-      <div className={step !== 'welcome' ? 'pt-16' : ''}>
+      <div className={step !== 'welcome' && step !== 'mode_select' ? 'pt-16' : ''}>
         {step === 'welcome' && (
-          <WelcomeSlides onComplete={() => setStep('assessment')} />
+          <WelcomeSlides onComplete={() => setStep('mode_select')} />
         )}
 
-        {step === 'assessment' && (
+        {step === 'mode_select' && (
+          <ModeSelection onSelect={handleModeSelect} />
+        )}
+
+        {step === 'assessment' && mode === 'general' && (
           <LevelAssessmentStep onComplete={handleAssessmentComplete} />
         )}
 
-        {step === 'results' && assessment && (
-          <AssessmentResults
-            assessment={assessment}
-            onContinue={() => setStep('categories')}
-          />
+        {step === 'assessment' && mode === 'professional' && (
+          <ProAssessmentStep onComplete={handleProAssessmentComplete} />
         )}
 
-        {step === 'categories' && (
-          <CategorySelection onComplete={handleCategoriesComplete} />
+        {step === 'results' && mode === 'general' && assessment && (
+          <AssessmentResults assessment={assessment} onContinue={() => setStep('categories')} />
+        )}
+
+        {step === 'results' && mode === 'professional' && proAssessment && (
+          <ProAssessmentResults assessment={proAssessment} onContinue={() => setStep('categories')} />
+        )}
+
+        {step === 'categories' && mode === 'general' && (
+          <CategorySelection onComplete={handleGeneralComplete} />
+        )}
+
+        {step === 'categories' && mode === 'professional' && (
+          <SceneSelection onComplete={handleProComplete} />
         )}
       </div>
     </div>

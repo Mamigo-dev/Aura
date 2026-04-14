@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useUserStore } from '../../stores/userStore'
 import { GradientText } from '../ui/GradientText'
 
 interface HeaderProps {
@@ -11,6 +12,9 @@ interface HeaderProps {
 export function Header({ title, showBack, showSettings = true, rightContent }: HeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const profile = useUserStore((s) => s.profile)
+  const setMode = useUserStore((s) => s.setMode)
+  const isPro = profile?.userMode === 'professional'
 
   const isHome = location.pathname === '/'
 
@@ -40,6 +44,15 @@ export function Header({ title, showBack, showSettings = true, rightContent }: H
 
         <div className="flex items-center gap-2">
           {rightContent}
+          {/* Mode switcher */}
+          <button
+            onClick={() => setMode(isPro ? 'general' : 'professional')}
+            className="h-8 px-2.5 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors bg-aura-surface border border-aura-border hover:border-aura-purple/50"
+            title={`Switch to ${isPro ? 'General' : 'Professional'} mode`}
+          >
+            <span>{isPro ? '💼' : '📚'}</span>
+            <span className="text-aura-text-dim hidden sm:inline">{isPro ? 'Pro' : 'General'}</span>
+          </button>
           {showSettings && (
             <button
               onClick={() => navigate('/settings')}

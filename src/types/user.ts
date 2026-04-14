@@ -1,5 +1,7 @@
 export type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
+export type UserMode = 'general' | 'professional'
+
 export type AIProvider = 'claude' | 'gpt'
 
 export type SearchProvider = 'brave' | 'newsapi' | 'perplexity' | 'google'
@@ -7,6 +9,7 @@ export type SearchProvider = 'brave' | 'newsapi' | 'perplexity' | 'google'
 export interface UserProfile {
   id: string
   createdAt: string
+  userMode: UserMode
   level: EnglishLevel
   sublevelScore: number // 0-100 within level
   selectedCategories: string[] // category IDs
@@ -17,6 +20,9 @@ export interface UserProfile {
   totalExercisesCompleted: number
   preferences: UserPreferences
   assessment?: LevelAssessment
+  // Professional mode fields
+  imbalanceAssessment?: import('./professional').ImbalanceAssessment
+  selectedScenes?: string[] // scene IDs for professional mode
 }
 
 export interface UserPreferences {
@@ -78,6 +84,7 @@ export function createDefaultProfile(): UserProfile {
   return {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
+    userMode: 'general',
     level: 'B1',
     sublevelScore: 50,
     selectedCategories: [],

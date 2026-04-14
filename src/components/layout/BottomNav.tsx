@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useUserStore } from '../../stores/userStore'
 
-const NAV_ITEMS = [
+const GENERAL_NAV = [
   { path: '/', label: 'Home', icon: HomeIcon },
   { path: '/practice', label: 'Practice', icon: PracticeIcon },
   { path: '/categories', label: 'Categories', icon: CategoryIcon },
@@ -8,14 +9,25 @@ const NAV_ITEMS = [
   { path: '/progress', label: 'Progress', icon: ProgressIcon },
 ]
 
+const PRO_NAV = [
+  { path: '/', label: 'Home', icon: HomeIcon },
+  { path: '/practice', label: 'Scenes', icon: CategoryIcon },
+  { path: '/stories', label: 'Stories', icon: StoryIcon },
+  { path: '/progress', label: 'Progress', icon: ProgressIcon },
+]
+
 export function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
+  const profile = useUserStore((s) => s.profile)
+  const isPro = profile?.userMode === 'professional'
 
   // Hide nav during onboarding or exercise
-  if (location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/exercise/')) {
+  if (location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/exercise/') || location.pathname.startsWith('/pro/exercise/')) {
     return null
   }
+
+  const NAV_ITEMS = isPro ? PRO_NAV : GENERAL_NAV
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 glass safe-bottom z-40">

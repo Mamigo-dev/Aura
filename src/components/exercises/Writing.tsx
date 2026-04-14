@@ -5,7 +5,7 @@ import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { countWords } from '../../lib/scoring'
-import { shouldUseAI } from '../../lib/ai-status'
+import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
 import { scoreWriting } from '../../api/client'
 import { ExerciseWrapper } from './ExerciseWrapper'
 import { Button } from '../ui/Button'
@@ -69,7 +69,7 @@ export function Writing({ exercise, onComplete }: WritingProps) {
           },
           {
             provider: profile.preferences.aiProvider,
-            apiKey: profile.preferences.apiKeys?.[profile.preferences.aiProvider],
+            apiKey: getEffectiveKey(profile.preferences, profile.preferences.aiProvider),
           }
         ) as WritingScore & { overallFeedback: string; sentenceFeedback: SentenceFeedback[] }
 

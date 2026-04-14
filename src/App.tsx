@@ -10,9 +10,14 @@ import Categories from './pages/Categories'
 import Stories from './pages/Stories'
 import Progress from './pages/Progress'
 import Settings from './pages/Settings'
+import ProHome from './pages/ProHome'
+import ProPractice from './pages/ProPractice'
+import ProExercise from './pages/ProExercise'
+import ProCategories from './pages/ProCategories'
+import ProProgress from './pages/ProProgress'
 
 export default function App() {
-  const { loadProfile, isLoading, isOnboarded } = useUserStore()
+  const { loadProfile, isLoading, isOnboarded, profile } = useUserStore()
 
   useEffect(() => {
     loadProfile()
@@ -22,6 +27,8 @@ export default function App() {
     return <LoadingScreen />
   }
 
+  const isPro = profile?.userMode === 'professional'
+
   return (
     <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
@@ -29,13 +36,21 @@ export default function App() {
         <Route path="*" element={<Navigate to="/onboarding" replace />} />
       ) : (
         <Route element={<AppShell />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/practice" element={<Practice />} />
+          {/* General Mode Routes */}
+          <Route path="/" element={isPro ? <ProHome /> : <Home />} />
+          <Route path="/practice" element={isPro ? <ProPractice /> : <Practice />} />
           <Route path="/exercise/:id" element={<Exercise />} />
-          <Route path="/categories" element={<Categories />} />
+          <Route path="/categories" element={isPro ? <ProCategories /> : <Categories />} />
           <Route path="/stories" element={<Stories />} />
-          <Route path="/progress" element={<Progress />} />
+          <Route path="/progress" element={isPro ? <ProProgress /> : <Progress />} />
           <Route path="/settings" element={<Settings />} />
+
+          {/* Professional Mode Routes */}
+          <Route path="/pro/practice" element={<ProPractice />} />
+          <Route path="/pro/exercise/:id" element={<ProExercise />} />
+          <Route path="/pro/categories" element={<ProCategories />} />
+          <Route path="/pro/progress" element={<ProProgress />} />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       )}

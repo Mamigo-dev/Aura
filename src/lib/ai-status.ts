@@ -1,25 +1,40 @@
 import type { UserPreferences, AIProvider } from '../types/user'
-import { API_BASE_URL } from './constants'
+import { API_BASE_URL, ENV_KEYS } from './constants'
 
 export interface AIStatus {
   aiConnected: boolean
   aiProvider: AIProvider
   hasApiKey: boolean
   hasBackendUrl: boolean
+  keySource: 'env' | 'user' | 'none'
   searchProvidersConnected: string[]
+}
+
+/**
+ * Get the effective API key for a provider.
+ * Priority: user-entered key > .env key
+ */
+export function getEffectiveKey(preferences: UserPreferences, provider: string): string {
+  const userKey = preferences.apiKeys?.[provider as keyof typeof preferences.apiKeys]
+  if (userKey && userKey.length > 5) return userKey
+  return ENV_KEYS[provider] || ''
 }
 
 export function getAIStatus(preferences: UserPreferences): AIStatus {
   const aiProvider = preferences.aiProvider
-  const aiKey = preferences.apiKeys?.[aiProvider]
-  const hasApiKey = !!aiKey && aiKey.length > 10
+  const effectiveKey = getEffectiveKey(preferences, aiProvider)
+  const userKey = preferences.apiKeys?.[aiProvider]
+  const hasApiKey = !!effectiveKey && effectiveKey.length > 10
   const hasBackendUrl = !!API_BASE_URL && API_BASE_URL !== 'https://aura-api.workers.dev'
 
-  // AI is connected if we have a key (client-side) or a backend URL (server-side keys)
+  let keySource: 'env' | 'user' | 'none' = 'none'
+  if (userKey && userKey.length > 10) keySource = 'user'
+  else if (ENV_KEYS[aiProvider] && ENV_KEYS[aiProvider].length > 10) keySource = 'env'
+
   const aiConnected = hasApiKey || hasBackendUrl
 
   const searchProvidersConnected = preferences.searchProviders.filter((sp) => {
-    const key = preferences.apiKeys?.[sp]
+    const key = getEffectiveKey(preferences, sp)
     return !!key && key.length > 5
   })
 
@@ -28,35 +43,13 @@ export function getAIStatus(preferences: UserPreferences): AIStatus {
     aiProvider,
     hasApiKey,
     hasBackendUrl,
+    keySource,
     searchProvidersConnected,
   }
 }
 
-export async function testAIConnection(
-  preferences: UserPreferences
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const apiKey = preferences.apiKeys?.[preferences.aiProvider]
-    if (!apiKey) {
-      return { success: false, message: 'No API key configured' }
-    }
-
-    // Quick test: just check if the key format looks valid
-    if (preferences.aiProvider === 'claude' && !apiKey.startsWith('sk-ant-')) {
-      return { success: false, message: 'Invalid Claude API key format (should start with sk-ant-)' }
-    }
-    if (preferences.aiProvider === 'gpt' && !apiKey.startsWith('sk-')) {
-      return { success: false, message: 'Invalid OpenAI API key format (should start with sk-)' }
-    }
-
-    return { success: true, message: `${preferences.aiProvider === 'claude' ? 'Claude' : 'GPT'} API key configured` }
-  } catch {
-    return { success: false, message: 'Connection test failed' }
-  }
-}
-
 /**
- * Determines whether to use AI or local scoring for a given exercise
+ * Determines whether to use AI or local scoring
  */
 export function shouldUseAI(preferences: UserPreferences): boolean {
   const status = getAIStatus(preferences)
