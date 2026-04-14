@@ -31,8 +31,9 @@ export interface UserPreferences {
   notificationTime: string // HH:mm format
   aiProvider: AIProvider
   searchProviders: SearchProvider[]
-  apiKeys: Partial<Record<AIProvider | SearchProvider, string>>
+  apiKeys: Partial<Record<AIProvider | SearchProvider | 'azure', string>>
   ttsVoice: string // OpenAI TTS voice: alloy, echo, fable, nova, onyx, shimmer
+  azureRegion: string // Azure Speech region e.g. 'eastus'
 }
 
 export interface LevelAssessment {
@@ -78,6 +79,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   searchProviders: ['brave', 'newsapi'],
   apiKeys: {},
   ttsVoice: 'nova',
+  azureRegion: 'eastus',
 }
 
 export function createDefaultProfile(): UserProfile {

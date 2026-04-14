@@ -21,10 +21,17 @@ const SEARCH_PROVIDERS: { id: SearchProvider; label: string }[] = [
 const API_KEY_PROVIDERS = [
   { id: 'claude', label: 'Claude API Key' },
   { id: 'gpt', label: 'OpenAI API Key' },
+  { id: 'azure', label: 'Azure Speech Key', description: 'For real phoneme-level pronunciation analysis (free 5h/month)' },
   { id: 'brave', label: 'Brave Search Key' },
   { id: 'newsapi', label: 'NewsAPI Key' },
   { id: 'perplexity', label: 'Perplexity Key' },
   { id: 'google', label: 'Google Search Key' },
+]
+
+const AZURE_REGIONS = [
+  'eastus', 'westus', 'westus2', 'centralus', 'eastus2',
+  'westeurope', 'northeurope', 'southeastasia', 'eastasia',
+  'australiaeast', 'japaneast', 'koreacentral',
 ]
 
 export default function Settings() {
@@ -295,6 +302,29 @@ export default function Settings() {
             </div>
           )}
         </Card>
+
+        {/* Azure Region (show when Azure key exists) */}
+        {preferences.apiKeys?.azure && (
+          <Card variant="glass" padding="md" className="animate-fade-in-up">
+            <h3 className="font-semibold mb-2">
+              <GradientText>Azure Region</GradientText>
+            </h3>
+            <p className="text-xs text-aura-text-dim mb-3">
+              Select the region matching your Azure Speech resource.
+            </p>
+            <select
+              value={preferences.azureRegion || 'eastus'}
+              onChange={(e) => updateProfile({
+                preferences: { ...preferences, azureRegion: e.target.value },
+              })}
+              className="w-full bg-aura-surface border border-aura-border rounded-xl px-3 py-2 text-sm text-aura-text focus:outline-none focus:border-aura-purple/50"
+            >
+              {AZURE_REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </Card>
+        )}
 
         {/* Daily Goal */}
         <Card variant="glass" padding="md" className="animate-fade-in-up">

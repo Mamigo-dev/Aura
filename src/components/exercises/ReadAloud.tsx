@@ -9,6 +9,7 @@ import { shouldUseAI, getEffectiveKey, getActiveAI } from '../../lib/ai-status'
 import { transcribeAudio } from '../../api/client'
 import { scoreReadAloudDirect, analyzePronunciationDirect } from '../../api/directAI'
 import { startAudioRecording, stopAudioRecording } from '../../lib/audioRecorder'
+import { assessPronunciation, type AzurePronunciationResult } from '../../lib/azurePronunciation'
 import { analyzePitch, detectIntonationPatterns, smoothPitchContour } from '../../lib/pitchAnalyzer'
 import { useSpeechRecognition } from '../speech/useSpeechRecognition'
 import { Microphone } from '../speech/Microphone'
@@ -32,6 +33,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [pitchData, setPitchData] = useState<PitchContourData | null>(null)
+  const [azureResult, setAzureResult] = useState<AzurePronunciationResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isPlayingRecording, setIsPlayingRecording] = useState(false)
   const playbackRef = useRef<HTMLAudioElement | null>(null)
@@ -61,6 +63,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
     if (audioUrl) URL.revokeObjectURL(audioUrl)
     setAudioUrl(null)
     setPitchData(null)
+    setAzureResult(null)
     setIsAnalyzing(false)
     setIsPlayingRecording(false)
   }, [exercise.id, resetTranscript])
@@ -196,6 +199,47 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
       setIsAnalyzing(true)
       try {
         const openaiKey = getEffectiveKey(profile.preferences, 'gpt')
+        const azureKey = getEffectiveKey(profile.preferences, 'azure')
+        const azureRegion = profile.preferences.azureRegion || 'eastus'
+
+        // Step 0: Azure Pronunciation Assessment (real audio analysis!)
+        if (audioBlob && azureKey) {
+          try {
+            const azure = await assessPronunciation(audioBlob, content.passage, {
+              subscriptionKey: azureKey,
+              region: azureRegion,
+            })
+            setAzureResult(azure)
+
+            // Override scores with Azure's real scores
+            details.accuracy = azure.accuracyScore
+            details.fluency = azure.fluencyScore
+            details.pronunciation = azure.pronunciationScore
+
+            // Build word analysis from Azure data
+            details.wordAnalysis = azure.words.map(w => ({
+              word: w.word,
+              expected: w.word,
+              status: w.errorType === 'None'
+                ? (w.accuracyScore >= 80 ? 'correct' as const : 'accent_issue' as const)
+                : w.errorType === 'Omission' ? 'missed' as const
+                : w.errorType === 'Mispronunciation' ? 'mispronounced' as const
+                : 'accent_issue' as const,
+              confidence: w.accuracyScore / 100,
+              tip: w.accuracyScore < 80
+                ? `Accuracy: ${w.accuracyScore}%. Focus on clear pronunciation of each syllable.`
+                : undefined,
+            }))
+
+            // Recalculate overall score with Azure data
+            const azureOverall = calculateOverallScore('read_aloud', details)
+            result.score = azureOverall
+            result.passed = azureOverall >= exercise.passingScore
+            setResult({ ...result, details: { ...details } })
+          } catch (e) {
+            console.warn('Azure Pronunciation Assessment failed:', e)
+          }
+        }
 
         // Step 1: Whisper transcription (much more accurate than Web Speech API)
         let whisperWords = undefined
@@ -439,6 +483,16 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
 
             {/* Score bars */}
             <Card variant="default">
+              {azureResult && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-medium">
+                    Azure Phoneme Analysis
+                  </span>
+                  <span className="text-[10px] text-aura-text-dim">
+                    Prosody: {azureResult.prosodyScore} | Completeness: {azureResult.completenessScore}
+                  </span>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 <ScoreBar label="Accuracy" value={details.accuracy} />
                 <ScoreBar label="Fluency" value={details.fluency} />
