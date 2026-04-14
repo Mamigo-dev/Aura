@@ -34,7 +34,10 @@ export interface ReadAloudScore {
   intonationFeedback?: IntonationFeedback[]
   rhythmAnalysis?: RhythmAnalysis
   pronunciationCoaching?: string
+  connectedSpeech?: string
 }
+
+// Re-export for backward compatibility - old code uses 'added' which still works
 
 export interface MispronunciationDetail {
   word: string
@@ -46,7 +49,7 @@ export interface MispronunciationDetail {
 export interface WordAnalysis {
   word: string
   expected: string
-  status: 'correct' | 'mispronounced' | 'missed' | 'added'
+  status: 'correct' | 'accent_issue' | 'mispronounced' | 'missed' | 'added'
   confidence?: number
   ipa?: string
   tip?: string

@@ -242,38 +242,38 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           intonationFeedback?: IntonationFeedback[]
           rhythmAnalysis?: RhythmAnalysis
           pronunciationCoaching?: string
+          connectedSpeech?: string
         }
         const enhancedDetails: ReadAloudScore = {
           ...details,
-          transcription: whisperText, // Replace Web Speech transcript with Whisper's
+          transcription: whisperText,
           whisperTranscription: whisperText,
           wordAnalysis: analysis.wordAnalysis,
           intonationFeedback: analysis.intonationFeedback,
           rhythmAnalysis: analysis.rhythmAnalysis,
           pronunciationCoaching: analysis.pronunciationCoaching,
+          connectedSpeech: analysis.connectedSpeech,
         }
 
-        // Recalculate ALL scores with the more accurate Whisper transcript
+        // Recalculate accuracy and fluency with Whisper transcript
         const whisperAccuracy = wordLevelAccuracy(content.passage, whisperText)
         const { count: wFillerCount } = countFillerWords(whisperText)
         const wWpm = calculateWPM(whisperText, elapsedSeconds)
         const wTotalWords = whisperText.split(/\s+/).filter(Boolean).length
         const whisperFluency = calculateFluency(wWpm, wFillerCount, wTotalWords, 'reading')
-        const whisperPronunciation = Math.min(100, Math.round(whisperAccuracy * 0.8 + 20))
-
-        // Use the BETTER of local vs Whisper scores (Whisper is more accurate)
         enhancedDetails.accuracy = Math.max(enhancedDetails.accuracy, whisperAccuracy)
         enhancedDetails.fluency = Math.max(enhancedDetails.fluency, whisperFluency)
-        enhancedDetails.pronunciation = Math.max(enhancedDetails.pronunciation, whisperPronunciation)
         enhancedDetails.missedWords = findMissedWords(content.passage, whisperText)
 
-        // If AI found no pronunciation issues, pronunciation should be high
-        const aiProblems = (analysis.wordAnalysis as WordAnalysis[] | undefined)?.filter(
-          (w: WordAnalysis) => w.status === 'mispronounced' || w.status === 'missed'
-        ) || []
-        if (aiProblems.length === 0) {
-          enhancedDetails.pronunciation = Math.max(enhancedDetails.pronunciation, 95)
-        }
+        // Calculate pronunciation score from AI analysis (not just word matching)
+        const words = analysis.wordAnalysis || []
+        const totalWords = words.length || 1
+        const accentIssues = words.filter((w: WordAnalysis) => w.status === 'accent_issue').length
+        const mispronounced = words.filter((w: WordAnalysis) => w.status === 'mispronounced').length
+        const missed = words.filter((w: WordAnalysis) => w.status === 'missed').length
+        // accent_issue = -5 points each, mispronounced = -15 each, missed = -10 each
+        const pronPenalty = (accentIssues * 5 + mispronounced * 15 + missed * 10) / totalWords * 10
+        enhancedDetails.pronunciation = Math.max(20, Math.round(100 - pronPenalty))
         // Recalculate overall score with enhanced details
         const enhancedOverall = calculateOverallScore('read_aloud', enhancedDetails)
         const enhancedResult: ExerciseResult = {
@@ -469,11 +469,13 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                       const lower = word.toLowerCase().replace(/[^\w]/g, '')
                       const isMissed = missed.some(m => m.toLowerCase() === lower)
                       const isMispronounced = problems.some(p => p.word.toLowerCase() === lower && p.status === 'mispronounced')
+                      const isAccentIssue = problems.some(p => p.word.toLowerCase() === lower && p.status === 'accent_issue')
                       return (
                         <span key={i}>
                           <span className={
                             isMissed ? 'bg-aura-error/20 text-aura-error px-0.5 rounded' :
-                            isMispronounced ? 'bg-aura-gold/20 text-aura-gold px-0.5 rounded' :
+                            isMispronounced ? 'bg-aura-error/20 text-aura-gold px-0.5 rounded' :
+                            isAccentIssue ? 'bg-aura-purple/20 text-aura-purple px-0.5 rounded' :
                             ''
                           }>{word}</span>{' '}
                         </span>
@@ -495,8 +497,8 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                   </p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-aura-text-dim">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-error/60" /> Missed</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-gold/60" /> Mispronounced</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-purple/60" /> Accent Issue</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-aura-error/60" /> Missed/Wrong</span>
                 </div>
               </div>
             </Card>
@@ -508,43 +510,63 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                   Pronunciation Issues ({problems.length})
                 </h3>
                 <div className="flex flex-col gap-3">
-                  {problems.map((w, i) => (
-                    <div key={i} className={`p-3 rounded-xl border ${
-                      w.status === 'missed' ? 'bg-aura-error/5 border-aura-error/20' : 'bg-aura-gold/5 border-aura-gold/20'
-                    }`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-lg font-bold text-aura-text">{w.word}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              w.status === 'missed' ? 'bg-aura-error/20 text-aura-error' : 'bg-aura-gold/20 text-aura-gold'
-                            }`}>
-                              {w.status === 'missed' ? 'Skipped' : 'Needs Work'}
-                            </span>
+                  {problems.map((w, i) => {
+                    const statusConfig = {
+                      accent_issue: { label: 'Accent', color: 'bg-aura-purple/20 text-aura-purple', border: 'bg-aura-purple/5 border-aura-purple/20' },
+                      mispronounced: { label: 'Wrong Word', color: 'bg-aura-error/20 text-aura-error', border: 'bg-aura-error/5 border-aura-error/20' },
+                      missed: { label: 'Skipped', color: 'bg-aura-error/20 text-aura-error', border: 'bg-aura-error/5 border-aura-error/20' },
+                      added: { label: 'Extra', color: 'bg-aura-text-dim/20 text-aura-text-dim', border: 'bg-aura-surface border-aura-border' },
+                      correct: { label: '', color: '', border: '' },
+                    }
+                    const config = statusConfig[w.status] || statusConfig.accent_issue
+                    return (
+                      <div key={i} className={`p-3 rounded-xl border ${config.border}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg font-bold text-aura-text">{w.word}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${config.color}`}>
+                                {config.label}
+                              </span>
+                            </div>
+
+                            {w.ipa && (
+                              <p className="text-sm text-aura-text-dim font-mono mb-1">
+                                Correct: /{w.ipa}/
+                              </p>
+                            )}
+
+                            {w.status === 'mispronounced' && w.expected && w.expected !== w.word && (
+                              <p className="text-sm text-aura-text-dim mb-1">
+                                You said: <span className="text-aura-error font-medium">"{w.expected}"</span>
+                              </p>
+                            )}
+
+                            {w.tip && (
+                              <p className="text-sm text-aura-text mt-1 bg-aura-surface/50 p-2 rounded-lg">
+                                💡 {w.tip}
+                              </p>
+                            )}
                           </div>
 
-                          {w.ipa && (
-                            <p className="text-sm text-aura-text-dim font-mono mb-1">/{w.ipa}/</p>
-                          )}
-
-                          {w.status === 'mispronounced' && w.expected && w.expected !== w.word && (
-                            <p className="text-sm text-aura-text-dim mb-1">
-                              You said: <span className="text-aura-error font-medium">"{w.expected}"</span>
-                            </p>
-                          )}
-
-                          {w.tip && (
-                            <p className="text-sm text-aura-text mt-1 bg-aura-surface/50 p-2 rounded-lg">
-                              💡 {w.tip}
-                            </p>
-                          )}
+                          <ListenButton text={w.word} size="sm" />
                         </div>
-
-                        <ListenButton text={w.word} size="sm" />
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
+              </Card>
+            )}
+
+            {/* Connected Speech feedback */}
+            {details.connectedSpeech && (
+              <Card variant="default">
+                <h3 className="text-sm font-semibold text-aura-text uppercase tracking-wide mb-2">
+                  Connected Speech & Flow
+                </h3>
+                <p className="text-sm text-aura-text-dim leading-relaxed">
+                  💡 {details.connectedSpeech}
+                </p>
               </Card>
             )}
 
