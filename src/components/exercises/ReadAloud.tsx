@@ -253,16 +253,35 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
           pronunciationCoaching: analysis.pronunciationCoaching,
         }
 
-        // Recalculate scores with the more accurate Whisper transcript
+        // Recalculate ALL scores with the more accurate Whisper transcript
         const whisperAccuracy = wordLevelAccuracy(content.passage, whisperText)
         const { count: wFillerCount } = countFillerWords(whisperText)
         const wWpm = calculateWPM(whisperText, elapsedSeconds)
         const wTotalWords = whisperText.split(/\s+/).filter(Boolean).length
         const whisperFluency = calculateFluency(wWpm, wFillerCount, wTotalWords, 'reading')
+        const whisperPronunciation = Math.min(100, Math.round(whisperAccuracy * 0.8 + 20))
+
+        // Use the BETTER of local vs Whisper scores (Whisper is more accurate)
         enhancedDetails.accuracy = Math.max(enhancedDetails.accuracy, whisperAccuracy)
         enhancedDetails.fluency = Math.max(enhancedDetails.fluency, whisperFluency)
+        enhancedDetails.pronunciation = Math.max(enhancedDetails.pronunciation, whisperPronunciation)
         enhancedDetails.missedWords = findMissedWords(content.passage, whisperText)
-        const enhancedResult: ExerciseResult = { ...result, details: enhancedDetails }
+
+        // If AI found no pronunciation issues, pronunciation should be high
+        const aiProblems = (analysis.wordAnalysis as WordAnalysis[] | undefined)?.filter(
+          (w: WordAnalysis) => w.status === 'mispronounced' || w.status === 'missed'
+        ) || []
+        if (aiProblems.length === 0) {
+          enhancedDetails.pronunciation = Math.max(enhancedDetails.pronunciation, 95)
+        }
+        // Recalculate overall score with enhanced details
+        const enhancedOverall = calculateOverallScore('read_aloud', enhancedDetails)
+        const enhancedResult: ExerciseResult = {
+          ...result,
+          score: Math.max(result.score, enhancedOverall),
+          passed: Math.max(result.score, enhancedOverall) >= exercise.passingScore,
+          details: enhancedDetails,
+        }
         setResult(enhancedResult)
       } catch (err) {
         console.warn('AI analysis failed:', err)
