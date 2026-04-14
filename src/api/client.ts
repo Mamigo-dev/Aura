@@ -172,6 +172,82 @@ export async function generateStory(
   }>('/api/stories', params, options)
 }
 
+// Whisper Audio Transcription (direct call to OpenAI, no backend needed)
+export async function transcribeAudio(
+  audioBlob: Blob,
+  apiKey: string
+): Promise<{
+  text: string
+  words?: { word: string; start: number; end: number }[]
+}> {
+  const formData = new FormData()
+  formData.append('file', audioBlob, 'recording.webm')
+  formData.append('model', 'whisper-1')
+  formData.append('response_format', 'verbose_json')
+  formData.append('timestamp_granularities[]', 'word')
+  formData.append('language', 'en')
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Whisper API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return {
+    text: data.text,
+    words: data.words,
+  }
+}
+
+// Comprehensive Pronunciation Analysis (AI-powered)
+export async function analyzePronunciationFull(
+  params: {
+    originalText: string
+    transcription: string
+    whisperWords?: { word: string; start: number; end: number }[]
+    pitchData?: { averageF0: number; minF0: number; maxF0: number }
+    intonationPatterns?: { pattern: string; startTime: number; endTime: number }[]
+    durationSeconds: number
+    wpm: number
+  },
+  options?: APIRequestOptions
+) {
+  return apiRequest<{
+    wordAnalysis: {
+      word: string
+      expected: string
+      status: 'correct' | 'mispronounced' | 'missed' | 'added'
+      confidence?: number
+      ipa?: string
+      tip?: string
+    }[]
+    intonationFeedback: {
+      sentenceIndex: number
+      sentence: string
+      expectedPattern: string
+      actualPattern: string
+      feedback: string
+    }[]
+    rhythmAnalysis: {
+      wpm: number
+      optimalWpmRange: [number, number]
+      pauseCount: number
+      longPauses: { time: number; duration: number }[]
+      fillerWords: string[]
+      paceVariation: number
+      feedback: string
+    }
+    pronunciationCoaching: string
+  }>('/api/analyze-pronunciation', params, options)
+}
+
 // Sync offline queue
 export async function syncOfflineQueue(
   queue: { endpoint: string; payload: unknown }[],

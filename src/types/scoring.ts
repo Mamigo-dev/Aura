@@ -28,6 +28,11 @@ export interface ReadAloudScore {
   missedWords: string[]
   mispronounced: MispronunciationDetail[]
   overallFeedback: string
+  // AI-powered detailed feedback (optional, populated when AI available)
+  wordAnalysis?: WordAnalysis[]
+  intonationFeedback?: IntonationFeedback[]
+  rhythmAnalysis?: RhythmAnalysis
+  pronunciationCoaching?: string
 }
 
 export interface MispronunciationDetail {
@@ -35,6 +40,33 @@ export interface MispronunciationDetail {
   said: string
   expected: string
   tip?: string
+}
+
+export interface WordAnalysis {
+  word: string
+  expected: string
+  status: 'correct' | 'mispronounced' | 'missed' | 'added'
+  confidence?: number
+  ipa?: string
+  tip?: string
+}
+
+export interface IntonationFeedback {
+  sentenceIndex: number
+  sentence: string
+  expectedPattern: 'rising' | 'falling' | 'rise-fall' | 'flat'
+  actualPattern: 'rising' | 'falling' | 'rise-fall' | 'flat'
+  feedback: string
+}
+
+export interface RhythmAnalysis {
+  wpm: number
+  optimalWpmRange: [number, number]
+  pauseCount: number
+  longPauses: { time: number; duration: number }[]
+  fillerWords: string[]
+  paceVariation: number
+  feedback: string
 }
 
 export interface ReadingComprehensionScore {

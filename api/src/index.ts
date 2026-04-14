@@ -7,6 +7,7 @@ import { handleScoreSpeech } from './handlers/score-speech'
 import { handleAura } from './handlers/aura'
 import { handleSearch } from './handlers/search'
 import { handleStories } from './handlers/stories'
+import { handleAnalyzePronunciation } from './handlers/analyze-pronunciation'
 
 export interface Env {
   ANTHROPIC_API_KEY?: string
@@ -58,6 +59,9 @@ export default {
           break
         case '/api/aura':
           response = await handleAura(request, env)
+          break
+        case '/api/analyze-pronunciation':
+          response = await handleAnalyzePronunciation(request, env)
           break
         case '/api/search':
           response = await handleSearch(request, env)

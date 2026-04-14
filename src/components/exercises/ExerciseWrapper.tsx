@@ -1,10 +1,12 @@
 import { type ReactNode, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Exercise } from '../../types/exercise'
 import type { ExerciseResult } from '../../types/scoring'
 import { EXERCISE_TYPE_LABELS } from '../../types/exercise'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { shouldUseAI } from '../../lib/ai-status'
+import { SAMPLE_EXERCISES } from '../../data/sampleExercises'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { ScoreBadge } from '../ui/ScoreBadge'
@@ -28,6 +30,13 @@ export function ExerciseWrapper({ exercise, children, onComplete }: ExerciseWrap
 
   const profile = useUserStore((s) => s.profile)
   const isAIScored = profile ? shouldUseAI(profile.preferences) : false
+  const navigate = useNavigate()
+
+  const getNextExerciseId = (): string | null => {
+    const currentIndex = SAMPLE_EXERCISES.findIndex((e) => e.id === exercise.id)
+    if (currentIndex === -1 || currentIndex >= SAMPLE_EXERCISES.length - 1) return null
+    return SAMPLE_EXERCISES[currentIndex + 1].id
+  }
 
   useEffect(() => {
     setExercise(exercise)
@@ -123,8 +132,20 @@ export function ExerciseWrapper({ exercise, children, onComplete }: ExerciseWrap
             <Button variant="secondary" className="flex-1" onClick={handleTryAgain}>
               Try Again
             </Button>
-            <Button variant="primary" className="flex-1">
-              Next Exercise
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={() => {
+                const nextId = getNextExerciseId()
+                if (nextId) {
+                  reset()
+                  navigate(`/exercise/${nextId}`)
+                } else {
+                  navigate('/')
+                }
+              }}
+            >
+              {getNextExerciseId() ? 'Next Exercise' : 'Back to Home'}
             </Button>
           </div>
         </div>
