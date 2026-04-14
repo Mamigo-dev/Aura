@@ -52,6 +52,8 @@ export interface WordAnalysis {
   status: 'correct' | 'accent_issue' | 'mispronounced' | 'missed' | 'added'
   confidence?: number
   ipa?: string
+  offsetMs?: number   // start time in recording (milliseconds)
+  durationMs?: number // word duration in recording (milliseconds)
   tip?: string
 }
 

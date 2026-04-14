@@ -15,6 +15,8 @@ export interface AzureWordResult {
   word: string
   accuracyScore: number  // 0-100
   errorType: 'None' | 'Omission' | 'Insertion' | 'Mispronunciation'
+  offsetMs: number   // start time in milliseconds
+  durationMs: number // duration in milliseconds
   feedback?: {
     prosody?: {
       break?: { errorTypes: string[] }
@@ -163,6 +165,8 @@ export async function assessPronunciation(
     pronunciationScore: nbest.PronScore ?? 0,
     words: (nbest.Words || []).map((w: {
       Word: string
+      Offset: number
+      Duration: number
       AccuracyScore: number
       ErrorType: string
       Feedback?: {
@@ -175,6 +179,8 @@ export async function assessPronunciation(
       word: w.Word,
       accuracyScore: w.AccuracyScore ?? 0,
       errorType: w.ErrorType || 'None',
+      offsetMs: (w.Offset || 0) / 10000, // Azure uses 100-nanosecond units → ms
+      durationMs: (w.Duration || 0) / 10000,
       feedback: w.Feedback ? {
         prosody: w.Feedback.Prosody ? {
           break: w.Feedback.Prosody.Break ? {

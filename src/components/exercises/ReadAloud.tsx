@@ -226,6 +226,8 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                 : w.errorType === 'Mispronunciation' ? 'mispronounced' as const
                 : 'accent_issue' as const,
               confidence: w.accuracyScore / 100,
+              offsetMs: w.offsetMs,
+              durationMs: w.durationMs,
               tip: w.accuracyScore < 80
                 ? `Accuracy: ${w.accuracyScore}%. Focus on clear pronunciation of each syllable.`
                 : undefined,
@@ -603,7 +605,35 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
                             )}
                           </div>
 
-                          <ListenButton text={w.word} size="sm" />
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            {/* Play AI model pronunciation */}
+                            <ListenButton text={w.word} size="sm" />
+                            {/* Play user's own pronunciation of this word */}
+                            {audioUrl && w.offsetMs != null && w.durationMs != null && w.durationMs > 0 && (
+                              <button
+                                onClick={() => {
+                                  const audio = new Audio(audioUrl)
+                                  audio.currentTime = w.offsetMs! / 1000
+                                  const endTime = (w.offsetMs! + w.durationMs!) / 1000
+                                  audio.play()
+                                  const checkEnd = () => {
+                                    if (audio.currentTime >= endTime) {
+                                      audio.pause()
+                                      audio.removeEventListener('timeupdate', checkEnd)
+                                    }
+                                  }
+                                  audio.addEventListener('timeupdate', checkEnd)
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-aura-surface border border-aura-border text-aura-text-dim hover:text-aura-text hover:border-aura-purple/50 transition-colors"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                </svg>
+                                My Voice
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
