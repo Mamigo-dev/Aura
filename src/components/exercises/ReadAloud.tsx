@@ -5,7 +5,7 @@ import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { wordLevelAccuracy, countFillerWords, calculateWPM, calculateFluency, findMissedWords } from '../../lib/scoring'
-import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
+import { shouldUseAI, getEffectiveKey, getActiveAI } from '../../lib/ai-status'
 import { transcribeAudio } from '../../api/client'
 import { scoreReadAloudDirect, analyzePronunciationDirect } from '../../api/directAI'
 import { startAudioRecording, stopAudioRecording } from '../../lib/audioRecorder'
@@ -117,17 +117,15 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
 
     if (useAI && profile) {
       try {
-        const aiKey = getEffectiveKey(profile.preferences, profile.preferences.aiProvider)
+        const activeAI = getActiveAI(profile.preferences)
+        if (!activeAI) throw new Error('No AI key available')
         const aiResult = await scoreReadAloudDirect(
           {
             originalText: content.passage,
             transcription: finalTranscript,
             keyPhrases: content.keyPhrases,
           },
-          {
-            provider: profile.preferences.aiProvider,
-            apiKey: aiKey,
-          }
+          activeAI
         ) as ReadAloudScore
 
         details = {
@@ -202,7 +200,8 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
         }
 
         // Step 3: AI comprehensive analysis (direct call, no backend needed)
-        const aiKey = getEffectiveKey(profile.preferences, profile.preferences.aiProvider)
+        const activeAI2 = getActiveAI(profile.preferences)
+        if (!activeAI2) throw new Error('No AI key available')
         const aiAnalysis = await analyzePronunciationDirect(
           {
             originalText: content.passage,
@@ -212,10 +211,7 @@ export function ReadAloud({ exercise, onComplete }: ReadAloudProps) {
             durationSeconds: elapsedSeconds,
             wpm: calculateWPM(finalTranscript, elapsedSeconds),
           },
-          {
-            provider: profile.preferences.aiProvider,
-            apiKey: aiKey,
-          }
+          activeAI2
         )
 
         // Update the result with AI analysis

@@ -137,7 +137,10 @@ export default function Settings() {
               {status.aiConnected ? (
                 <div className="text-sm text-aura-text-dim space-y-1">
                   <p>
-                    Provider: <span className="text-aura-text font-medium">{status.aiProvider === 'claude' ? 'Claude' : 'GPT'}</span>
+                    Using: <span className="text-aura-text font-medium">{status.activeProvider === 'claude' ? 'Claude' : 'GPT'}</span>
+                    {status.activeProvider !== status.aiProvider && (
+                      <span className="text-aura-gold"> (auto-detected)</span>
+                    )}
                     {' '}&middot;{' '}
                     Scoring: <span className="text-aura-success font-medium">AI-Powered</span>
                     {' '}&middot;{' '}

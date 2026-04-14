@@ -5,7 +5,7 @@ import { calculateOverallScore } from '../../types/scoring'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import { useUserStore } from '../../stores/userStore'
 import { countWords } from '../../lib/scoring'
-import { shouldUseAI, getEffectiveKey } from '../../lib/ai-status'
+import { shouldUseAI, getActiveAI } from '../../lib/ai-status'
 import { scoreWritingDirect } from '../../api/directAI'
 import { ExerciseWrapper } from './ExerciseWrapper'
 import { Button } from '../ui/Button'
@@ -60,17 +60,15 @@ export function Writing({ exercise, onComplete }: WritingProps) {
     if (useAI && profile) {
       // Use AI scoring
       try {
-        const aiKey = getEffectiveKey(profile.preferences, profile.preferences.aiProvider)
+        const activeAI = getActiveAI(profile.preferences)
+        if (!activeAI) throw new Error('No AI key available')
         const aiResult = await scoreWritingDirect(
           {
             prompt: content.prompt,
             submission: userInput,
             level: profile.level,
           },
-          {
-            provider: profile.preferences.aiProvider,
-            apiKey: aiKey,
-          }
+          activeAI
         ) as WritingScore & { overallFeedback: string; sentenceFeedback: SentenceFeedback[] }
 
         details = {
