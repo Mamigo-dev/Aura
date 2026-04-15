@@ -6,6 +6,9 @@ import type {
   NaturalnessScore,
 } from '../../types/professional'
 import { calculateNaturalnessComposite } from '../../types/professional'
+import { useUserStore } from '../../stores/userStore'
+import { getActiveAI } from '../../lib/ai-status'
+import { callAIDirect } from '../../api/directAI'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Microphone } from '../speech/Microphone'
@@ -118,7 +121,10 @@ export function SocialSurvival({ exercise, onComplete }: SocialSurvivalProps) {
     setIsFinished(true)
   }
 
-  const handleSend = () => {
+  const [isAIThinking, setIsAIThinking] = useState(false)
+  const profile = useUserStore((s) => s.profile)
+
+  const handleSend = async () => {
     const text = (userInput + (interimTranscript || '')).trim()
     if (!text) return
 
@@ -128,23 +134,62 @@ export function SocialSurvival({ exercise, onComplete }: SocialSurvivalProps) {
     // Add user message
     const newMessages: ChatMessage[] = [...messages, { role: 'user', text }]
     setUserInput('')
-
-    // Generate AI response
-    const starters = content.conversationStarters
-    let aiResponse: string
-
-    if (starterIndexRef.current < starters.length) {
-      aiResponse = starters[starterIndexRef.current]
-      starterIndexRef.current++
-    } else {
-      aiResponse = FILLER_RESPONSES[Math.floor(Math.random() * FILLER_RESPONSES.length)]
-    }
-
-    // Delay AI response slightly for realism
     setMessages(newMessages)
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: 'ai', text: aiResponse }])
-    }, 800)
+
+    // Try to use real AI for response
+    const ai = profile ? getActiveAI(profile.preferences) : null
+    if (ai) {
+      setIsAIThinking(true)
+      try {
+        // Build conversation history for context
+        const chatHistory = newMessages
+          .map(m => `${m.role === 'user' ? 'Student' : 'You'}: ${m.text}`)
+          .join('\n')
+
+        const response = await callAIDirect(
+          `You are playing a role in a conversation practice exercise for an English learner.
+
+YOUR ROLE: ${content.aiRole}
+SCENARIO: ${content.scenario}
+CHALLENGES TO INCLUDE: ${content.challenges.join(', ')}
+
+RULES:
+- Stay in character as ${content.aiRole}
+- Respond naturally and conversationally (1-2 sentences max)
+- React to what the student actually said
+- Occasionally throw in: jokes, topic changes, slang, questions
+- Keep it casual and friendly, like a real conversation
+- Do NOT be a language teacher — just be the character
+- If the student says something awkward, react naturally (don't correct them)`,
+          `Conversation so far:\n${chatHistory}\n\nRespond as ${content.aiRole}. Keep it natural, 1-2 sentences.`,
+          ai
+        )
+
+        setMessages(prev => [...prev, { role: 'ai', text: response.trim() }])
+      } catch (err) {
+        console.warn('AI conversation failed, using fallback:', err)
+        // Fallback to basic responses
+        const fallback = content.conversationStarters[starterIndexRef.current] ||
+          "That's interesting! Tell me more."
+        starterIndexRef.current++
+        setMessages(prev => [...prev, { role: 'ai', text: fallback }])
+      } finally {
+        setIsAIThinking(false)
+      }
+    } else {
+      // No AI key — use pre-written starters as fallback
+      const starters = content.conversationStarters
+      let aiResponse: string
+      if (starterIndexRef.current < starters.length) {
+        aiResponse = starters[starterIndexRef.current]
+        starterIndexRef.current++
+      } else {
+        aiResponse = FILLER_RESPONSES[Math.floor(Math.random() * FILLER_RESPONSES.length)]
+      }
+      setTimeout(() => {
+        setMessages(prev => [...prev, { role: 'ai', text: aiResponse }])
+      }, 800)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -273,6 +318,19 @@ export function SocialSurvival({ exercise, onComplete }: SocialSurvivalProps) {
               </div>
             </div>
           ))}
+          {/* Typing indicator */}
+          {isAIThinking && (
+            <div className="flex items-start gap-2 py-1">
+              <span className="text-xs bg-aura-purple/20 text-aura-purple px-1.5 py-0.5 rounded">AI</span>
+              <div className="bg-aura-surface border border-aura-border rounded-2xl rounded-tl-sm px-4 py-3">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 rounded-full bg-aura-text-dim animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-aura-text-dim animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-aura-text-dim animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={chatEndRef} />
         </div>
       )}
