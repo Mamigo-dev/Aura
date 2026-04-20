@@ -541,6 +541,234 @@ function CategorySelection({
 }
 
 // ---------------------------------------------------------------------------
+// Self-Assessment Pickers (Skip the test, just pick your level)
+// ---------------------------------------------------------------------------
+
+const LEVEL_OPTIONS: { level: EnglishLevel; title: string; description: string; emoji: string }[] = [
+  {
+    level: 'A1',
+    emoji: '🌱',
+    title: 'Beginner',
+    description: "I know basic words and simple phrases. I can introduce myself but struggle with most conversations.",
+  },
+  {
+    level: 'A2',
+    emoji: '🌿',
+    title: 'Elementary',
+    description: "I can handle short conversations on familiar topics like family, work, and shopping.",
+  },
+  {
+    level: 'B1',
+    emoji: '🌳',
+    title: 'Intermediate',
+    description: "I can follow most conversations and express opinions on familiar topics. Travel and daily life feel okay.",
+  },
+  {
+    level: 'B2',
+    emoji: '🌲',
+    title: 'Upper Intermediate',
+    description: "I can discuss complex topics, watch movies without subtitles most of the time, and write detailed messages.",
+  },
+  {
+    level: 'C1',
+    emoji: '🏔️',
+    title: 'Advanced',
+    description: "I use English fluently for work and social situations. I can handle nuances, idioms, and abstract ideas.",
+  },
+  {
+    level: 'C2',
+    emoji: '⭐',
+    title: 'Proficient',
+    description: "I'm near-native. I understand subtle humor, rare expressions, and can discuss anything with precision.",
+  },
+]
+
+function GeneralLevelPicker({ onComplete }: { onComplete: (assessment: LevelAssessment) => void }) {
+  return (
+    <div className="flex flex-col items-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full py-12">
+      <div className="text-center mb-8 animate-fade-in-up">
+        <h2 className="text-3xl font-bold text-aura-text mb-2">
+          Pick Your <GradientText className="text-3xl font-bold">Level</GradientText>
+        </h2>
+        <p className="text-aura-text-dim">Which one sounds most like you? You can always change it later.</p>
+      </div>
+
+      <div className="w-full flex flex-col gap-3 mb-8">
+        {LEVEL_OPTIONS.map((opt, i) => (
+          <Card
+            key={opt.level}
+            variant="gradient"
+            padding="md"
+            hoverable
+            onClick={() => {
+              const assessment: LevelAssessment = {
+                completedAt: new Date().toISOString(),
+                scores: {
+                  vocabulary: 50,
+                  grammar: 50,
+                  comprehension: 50,
+                  dailyExpressions: 50,
+                  technicalVocab: 50,
+                  idioms: 50,
+                },
+                assignedLevel: opt.level,
+                weakAreas: [],
+                recommendations: [`Practice at ${opt.title} level. You can retake assessment anytime in Settings.`],
+              }
+              onComplete(assessment)
+            }}
+            className="animate-fade-in-up"
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            <div className="flex items-start gap-4">
+              <span className="text-3xl shrink-0">{opt.emoji}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-aura-text">{opt.title}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded bg-aura-purple/20 text-aura-purple font-mono">{opt.level}</span>
+                </div>
+                <p className="text-sm text-aura-text-dim leading-relaxed">{opt.description}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// --- Professional Imbalance Picker ---
+
+const PRO_PROFILE_PRESETS: {
+  id: string
+  title: string
+  description: string
+  emoji: string
+  profile: ImbalanceProfile
+  primaryGaps: ImbalanceDimension[]
+}[] = [
+  {
+    id: 'tech_shy',
+    emoji: '💻',
+    title: 'The Shy Techie',
+    description: "I can write code reviews and docs, but I freeze when someone wants to chat about weekends or makes a joke.",
+    profile: {
+      technicalWriting: 85, academicReading: 80, registerFlexibility: 35,
+      casualConversation: 25, socialSmallTalk: 20, impromptuSpeaking: 30,
+      humorSarcasm: 25, culturalReferences: 30,
+    },
+    primaryGaps: ['socialSmallTalk', 'casualConversation', 'humorSarcasm'],
+  },
+  {
+    id: 'academic',
+    emoji: '🎓',
+    title: 'The Academic',
+    description: "I read papers and write research fine. Conferences and formal talks work. Casual hallway chat? Nope.",
+    profile: {
+      technicalWriting: 90, academicReading: 90, registerFlexibility: 30,
+      casualConversation: 35, socialSmallTalk: 25, impromptuSpeaking: 45,
+      humorSarcasm: 30, culturalReferences: 35,
+    },
+    primaryGaps: ['registerFlexibility', 'socialSmallTalk', 'humorSarcasm'],
+  },
+  {
+    id: 'presenter',
+    emoji: '🎤',
+    title: 'The Scripted Presenter',
+    description: "I can deliver a rehearsed talk well. But when questions come up or I'm off-script, I panic.",
+    profile: {
+      technicalWriting: 75, academicReading: 75, registerFlexibility: 50,
+      casualConversation: 50, socialSmallTalk: 45, impromptuSpeaking: 25,
+      humorSarcasm: 40, culturalReferences: 45,
+    },
+    primaryGaps: ['impromptuSpeaking', 'socialSmallTalk'],
+  },
+  {
+    id: 'formal_only',
+    emoji: '👔',
+    title: 'Too Formal',
+    description: "My English sounds stiff. I use 'Furthermore' in Slack. I want to sound more natural and human.",
+    profile: {
+      technicalWriting: 85, academicReading: 80, registerFlexibility: 20,
+      casualConversation: 45, socialSmallTalk: 40, impromptuSpeaking: 50,
+      humorSarcasm: 35, culturalReferences: 40,
+    },
+    primaryGaps: ['registerFlexibility', 'humorSarcasm', 'culturalReferences'],
+  },
+  {
+    id: 'conversational_weak',
+    emoji: '💬',
+    title: 'Missing the Nuances',
+    description: "I can function in English, but I miss jokes, idioms, and cultural references. Everything feels literal.",
+    profile: {
+      technicalWriting: 70, academicReading: 70, registerFlexibility: 55,
+      casualConversation: 55, socialSmallTalk: 50, impromptuSpeaking: 55,
+      humorSarcasm: 25, culturalReferences: 20,
+    },
+    primaryGaps: ['humorSarcasm', 'culturalReferences'],
+  },
+  {
+    id: 'custom',
+    emoji: '🎯',
+    title: "I'm Not Sure",
+    description: "Start me at a balanced middle level. I'll figure it out as I practice.",
+    profile: createDefaultImbalanceProfile(),
+    primaryGaps: ['casualConversation', 'socialSmallTalk'],
+  },
+]
+
+function ProLevelPicker({ onComplete }: { onComplete: (assessment: ImbalanceAssessment) => void }) {
+  return (
+    <div className="flex flex-col items-center min-h-[80vh] px-6 max-w-2xl mx-auto w-full py-12">
+      <div className="text-center mb-8 animate-fade-in-up">
+        <h2 className="text-3xl font-bold text-aura-text mb-2">
+          Which <GradientText className="text-3xl font-bold">Sounds Like You</GradientText>?
+        </h2>
+        <p className="text-aura-text-dim">Pick the description that fits best. You can always change it later.</p>
+      </div>
+
+      <div className="w-full flex flex-col gap-3 mb-8">
+        {PRO_PROFILE_PRESETS.map((preset, i) => (
+          <Card
+            key={preset.id}
+            variant="gradient"
+            padding="md"
+            hoverable
+            onClick={() => {
+              const recommendationMap: Record<string, string> = {
+                casualConversation: 'Practice everyday conversations and informal expressions.',
+                socialSmallTalk: 'Build small talk skills for social situations.',
+                impromptuSpeaking: 'Train spontaneous responses to unexpected questions.',
+                humorSarcasm: 'Learn to recognize and use humor and sarcasm.',
+                registerFlexibility: 'Practice switching between formal and casual.',
+                culturalReferences: 'Learn common idioms, slang, and cultural expressions.',
+              }
+              onComplete({
+                completedAt: new Date().toISOString(),
+                profile: preset.profile,
+                primaryGaps: preset.primaryGaps,
+                anxietyScenes: [],
+                recommendations: preset.primaryGaps.map(g => recommendationMap[g] || `Work on ${IMBALANCE_LABELS[g]}.`),
+              })
+            }}
+            className="animate-fade-in-up"
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            <div className="flex items-start gap-4">
+              <span className="text-3xl shrink-0">{preset.emoji}</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-aura-text mb-1">{preset.title}</h3>
+                <p className="text-sm text-aura-text-dim leading-relaxed">{preset.description}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Mode Selection
 // ---------------------------------------------------------------------------
 
@@ -982,8 +1210,7 @@ export default function Onboarding() {
   const steps: { key: OnboardingStep; label: string }[] = [
     { key: 'welcome', label: 'Welcome' },
     { key: 'mode_select', label: 'Mode' },
-    { key: 'assessment', label: 'Assessment' },
-    { key: 'results', label: 'Results' },
+    { key: 'assessment', label: 'Your Level' },
     { key: 'categories', label: mode === 'professional' ? 'Scenes' : 'Interests' },
   ]
   const currentStepIndex = steps.findIndex((s) => s.key === step)
@@ -1028,19 +1255,17 @@ export default function Onboarding() {
         )}
 
         {step === 'assessment' && mode === 'general' && (
-          <LevelAssessmentStep onComplete={handleAssessmentComplete} />
+          <GeneralLevelPicker onComplete={(a) => {
+            setAssessment(a)
+            setStep('categories')
+          }} />
         )}
 
         {step === 'assessment' && mode === 'professional' && (
-          <ProAssessmentStep onComplete={handleProAssessmentComplete} />
-        )}
-
-        {step === 'results' && mode === 'general' && assessment && (
-          <AssessmentResults assessment={assessment} onContinue={() => setStep('categories')} />
-        )}
-
-        {step === 'results' && mode === 'professional' && proAssessment && (
-          <ProAssessmentResults assessment={proAssessment} onContinue={() => setStep('categories')} />
+          <ProLevelPicker onComplete={(a) => {
+            setProAssessment(a)
+            setStep('categories')
+          }} />
         )}
 
         {step === 'categories' && mode === 'general' && (
