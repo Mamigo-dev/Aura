@@ -4,7 +4,7 @@ export type UserMode = 'general' | 'professional'
 
 export type AIProvider = 'claude' | 'gpt'
 
-export type SearchProvider = 'brave' | 'newsapi' | 'perplexity' | 'google'
+export type SearchProvider = 'brave'
 
 export interface UserProfile {
   id: string
@@ -78,7 +78,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   notificationsEnabled: false,
   notificationTime: '09:00',
   aiProvider: 'claude',
-  searchProviders: ['brave', 'newsapi'],
+  searchProviders: ['brave'],
   apiKeys: {},
   ttsVoice: 'nova',
   azureRegion: 'eastus',

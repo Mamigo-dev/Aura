@@ -111,38 +111,26 @@ Aura uses external AI APIs for the best experience. **None are required** — wi
 - **Get it:** [console.anthropic.com](https://console.anthropic.com/)
 - **Cost:** Similar to OpenAI, ~$0.01-0.05 per exercise
 
-### 🔍 Tier 3: Content Discovery (Optional)
-
-These enable finding fresh content from the web for practice:
+### 🔍 Tier 3: Fresh Content (Optional)
 
 #### **Brave Search**
-- Searches for trending articles/content across any category
-- **Free tier:** 2,000 queries/month
-- Get it: [api.search.brave.com](https://api.search.brave.com/)
-
-#### **NewsAPI**
-- Access real news articles for reading practice
-- **Free tier:** 100 requests/day
-- Get it: [newsapi.org](https://newsapi.org/)
-
-#### **Perplexity**
-- AI-synthesized summaries with citations
-- **Cost:** ~$0.005 per query
-- Get it: [perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
-
-#### **Google Custom Search**
-- Targeted web search
-- **Free tier:** 100 queries/day
-- Get it: [developers.google.com/custom-search](https://developers.google.com/custom-search/v1/overview)
+- **What it unlocks:**
+  - 🗞️ **Stories page with real trending content** — fetches today's news/articles for any category
+  - AI turns real search results into a custom reading passage with trending vocabulary highlighted
+  - You see the original sources and can click through to read more
+- **Without it:** Stories page shows hardcoded sample stories (still useful, but not fresh)
+- **Impact:** ⭐⭐⭐ — Nice for daily fresh reading material
+- **Get it:** [api.search.brave.com](https://api.search.brave.com/)
+- **Cost:** **FREE 2000 queries/month** (plenty for personal use)
 
 ### 📊 What You Get At Each Level
 
 | Setup | What Works |
 |-------|-----------|
-| **Nothing** | Basic exercises, local scoring (just word-matching), browser TTS |
+| **Nothing** | Basic exercises, local scoring (just word-matching), browser TTS, sample stories |
 | **OpenAI only** | AI scoring, natural voices, writing feedback, social conversations, better speech recognition |
 | **OpenAI + Azure** ⭐ | **Recommended** — Everything above + real phoneme-level pronunciation feedback |
-| **+ Search APIs** | Fresh trending content, real news articles |
+| **+ Brave** | Fresh daily trending content in Stories, AI-generated reading passages from real news |
 
 ### 💡 Starter Recommendation
 
@@ -151,6 +139,8 @@ Most users only need **2 keys**:
 2. **Azure Speech** — covers the remaining 20% (the critical pronunciation accuracy)
 
 Combined cost: **~$0-5/month** for typical personal use (Azure free tier + OpenAI pay-as-you-go).
+
+Add **Brave** if you want fresh daily content (free 2000/month).
 
 ---
 

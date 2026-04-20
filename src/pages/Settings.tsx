@@ -7,25 +7,15 @@ import { Button } from '../components/ui/Button'
 import { GradientText } from '../components/ui/GradientText'
 import { Modal } from '../components/ui/Modal'
 import { Header } from '../components/layout/Header'
-import type { AIProvider, SearchProvider } from '../types/user'
+import type { AIProvider } from '../types/user'
 import { getAIStatus } from '../lib/ai-status'
 import { TTS_VOICES, type TTSVoice } from '../lib/tts'
 
-const SEARCH_PROVIDERS: { id: SearchProvider; label: string }[] = [
-  { id: 'brave', label: 'Brave Search' },
-  { id: 'newsapi', label: 'NewsAPI' },
-  { id: 'perplexity', label: 'Perplexity' },
-  { id: 'google', label: 'Google' },
-]
-
 const API_KEY_PROVIDERS = [
-  { id: 'claude', label: 'Claude API Key' },
-  { id: 'gpt', label: 'OpenAI API Key' },
-  { id: 'azure', label: 'Azure Speech Key', description: 'For real phoneme-level pronunciation analysis (free 5h/month)' },
-  { id: 'brave', label: 'Brave Search Key' },
-  { id: 'newsapi', label: 'NewsAPI Key' },
-  { id: 'perplexity', label: 'Perplexity Key' },
-  { id: 'google', label: 'Google Search Key' },
+  { id: 'gpt', label: 'OpenAI API Key', description: 'Speech recognition, TTS voices, AI scoring & coaching' },
+  { id: 'azure', label: 'Azure Speech Key', description: 'Real phoneme-level pronunciation analysis (free 5h/month)' },
+  { id: 'claude', label: 'Claude API Key', description: 'Alternative to OpenAI for AI scoring (optional)' },
+  { id: 'brave', label: 'Brave Search Key', description: 'Fetch real trending content for Stories (free 2000/month)' },
 ]
 
 const AZURE_REGIONS = [
@@ -36,7 +26,7 @@ const AZURE_REGIONS = [
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { profile, setAIProvider, setSearchProviders, setApiKey, updateProfile } =
+  const { profile, setAIProvider, setApiKey, updateProfile } =
     useUserStore()
 
   const [showClearModal, setShowClearModal] = useState(false)
@@ -49,14 +39,6 @@ export default function Settings() {
 
   const handleAIProviderChange = (provider: AIProvider) => {
     setAIProvider(provider)
-  }
-
-  const handleSearchProviderToggle = (provider: SearchProvider) => {
-    const current = preferences.searchProviders
-    const updated = current.includes(provider)
-      ? current.filter((p) => p !== provider)
-      : [...current, provider]
-    setSearchProviders(updated)
   }
 
   const handleApiKeyChange = (provider: string, key: string) => {
@@ -193,39 +175,6 @@ export default function Settings() {
           </div>
         </Card>
 
-        {/* Search APIs */}
-        <Card variant="glass" padding="md" className="animate-fade-in-up">
-          <h3 className="font-semibold mb-3">
-            <GradientText>Search APIs</GradientText>
-          </h3>
-          <div className="space-y-2">
-            {SEARCH_PROVIDERS.map((sp) => (
-              <label
-                key={sp.id}
-                className="flex items-center justify-between py-2 cursor-pointer"
-              >
-                <span className="text-sm text-aura-text">{sp.label}</span>
-                <div
-                  className={`w-10 h-6 rounded-full transition-colors duration-200 relative ${
-                    preferences.searchProviders.includes(sp.id)
-                      ? 'bg-aura-purple'
-                      : 'bg-aura-surface'
-                  }`}
-                  onClick={() => handleSearchProviderToggle(sp.id)}
-                >
-                  <div
-                    className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
-                      preferences.searchProviders.includes(sp.id)
-                        ? 'translate-x-5'
-                        : 'translate-x-1'
-                    }`}
-                  />
-                </div>
-              </label>
-            ))}
-          </div>
-        </Card>
-
         {/* API Keys */}
         <Card variant="glass" padding="md" className="animate-fade-in-up">
           <button
@@ -257,9 +206,12 @@ export default function Settings() {
 
                 return (
                   <div key={provider.id}>
-                    <label className="block text-sm text-aura-text-dim mb-1.5">
+                    <label className="block text-sm text-aura-text mb-0.5 font-medium">
                       {provider.label}
                     </label>
+                    {provider.description && (
+                      <p className="text-xs text-aura-text-dim mb-1.5">{provider.description}</p>
+                    )}
                     <div className="flex gap-2">
                       <input
                         type={isVisible ? 'text' : 'password'}

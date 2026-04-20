@@ -4,6 +4,10 @@ import { Button } from '../components/ui/Button'
 import { GradientText } from '../components/ui/GradientText'
 import { Modal } from '../components/ui/Modal'
 import { useSpeechSynthesis } from '../components/speech/useSpeechSynthesis'
+import { useUserStore } from '../stores/userStore'
+import { getActiveAI, getEffectiveKey } from '../lib/ai-status'
+import { callAIDirect, parseAIJSON } from '../api/directAI'
+import { generateStoryFromBrave } from '../lib/braveSearch'
 
 // --- Types ---
 
@@ -20,7 +24,18 @@ interface Story {
   category: string
   content: string
   trendingWords: TrendingWord[]
+  isFresh?: boolean
+  sources?: { title: string; url: string }[]
 }
+
+const CATEGORY_QUERIES: { label: string; query: string }[] = [
+  { label: 'Tech', query: 'latest technology trends this week' },
+  { label: 'Business', query: 'trending business news this week' },
+  { label: 'Science', query: 'recent scientific discoveries this week' },
+  { label: 'Health', query: 'health and wellness trends this week' },
+  { label: 'Culture', query: 'popular culture trends this week' },
+  { label: 'Workplace', query: 'workplace and career trends this week' },
+]
 
 // --- Sample Data ---
 
@@ -229,11 +244,18 @@ function StoryList({
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(story.category)}`}
-                  >
-                    {story.category}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(story.category)}`}
+                    >
+                      {story.category}
+                    </span>
+                    {story.isFresh && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-aura-gold/20 text-aura-gold">
+                        ✨ Fresh
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 text-xs text-aura-text-dim">
                     <span>{wordCount} words</span>
                     <span className="w-1 h-1 rounded-full bg-aura-border" />
@@ -372,6 +394,27 @@ function StoryView({
         </Button>
       </div>
 
+      {/* Sources (for fresh content) */}
+      {story.sources && story.sources.length > 0 && (
+        <Card variant="default" padding="sm">
+          <p className="text-xs text-aura-text-dim mb-2 font-medium">Based on these recent sources:</p>
+          <ul className="space-y-1">
+            {story.sources.map((src, i) => (
+              <li key={i} className="text-xs">
+                <a
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-aura-purple hover:underline line-clamp-1"
+                >
+                  {i + 1}. {src.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {/* Word definition modal */}
       <Modal
         isOpen={selectedWord !== null}
@@ -422,6 +465,51 @@ function StoryView({
 
 export default function Stories() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null)
+  const [stories, setStories] = useState<Story[]>(SAMPLE_STORIES)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const profile = useUserStore((s) => s.profile)
+  const braveKey = profile ? getEffectiveKey(profile.preferences, 'brave') : ''
+  const ai = profile ? getActiveAI(profile.preferences) : null
+  const canFetchFresh = braveKey.length > 10 && ai !== null
+
+  const handleGenerateFresh = useCallback(async (category: { label: string; query: string }) => {
+    if (!ai) return
+    setIsGenerating(true)
+    setError(null)
+    try {
+      const story = await generateStoryFromBrave(
+        category.label,
+        category.query,
+        braveKey,
+        (systemPrompt, userMessage) => callAIDirect(systemPrompt, userMessage, ai),
+        parseAIJSON
+      )
+
+      const newStory: Story = {
+        id: `fresh-${Date.now()}`,
+        title: story.title,
+        category: story.category,
+        content: story.content,
+        trendingWords: story.trendingWords.map(tw => ({
+          word: tw.word,
+          definition: tw.definition,
+          pronunciation: tw.pronunciation,
+          examples: tw.examples,
+        })),
+        isFresh: true,
+        sources: story.sources,
+      }
+
+      setStories(prev => [newStory, ...prev])
+      setSelectedStory(newStory)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate fresh story')
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [ai, braveKey])
 
   if (selectedStory) {
     return (
@@ -436,7 +524,57 @@ export default function Stories() {
 
   return (
     <div className="min-h-screen bg-aura-midnight px-4 py-6">
-      <StoryList stories={SAMPLE_STORIES} onSelect={setSelectedStory} />
+      <div className="w-full max-w-2xl mx-auto">
+        {/* Fresh content section */}
+        {canFetchFresh ? (
+          <Card variant="aura" padding="md" className="mb-6">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="text-2xl">📡</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-aura-text">Fresh Trending Content</h3>
+                <p className="text-xs text-aura-text-dim">Pick a topic — AI fetches today's news and writes a reading passage</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {CATEGORY_QUERIES.map((cat) => (
+                <Button
+                  key={cat.label}
+                  variant="secondary"
+                  size="sm"
+                  disabled={isGenerating}
+                  onClick={() => handleGenerateFresh(cat)}
+                  className="text-xs"
+                >
+                  {cat.label}
+                </Button>
+              ))}
+            </div>
+            {isGenerating && (
+              <div className="flex items-center gap-2 mt-3 text-sm text-aura-text-dim">
+                <div className="w-4 h-4 border-2 border-aura-purple border-t-transparent rounded-full animate-spin" />
+                Fetching fresh content from the web...
+              </div>
+            )}
+            {error && (
+              <p className="text-sm text-aura-error mt-3">⚠️ {error}</p>
+            )}
+          </Card>
+        ) : (
+          <Card variant="glass" padding="md" className="mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">💡</span>
+              <div>
+                <p className="text-sm text-aura-text">Want fresh daily content?</p>
+                <p className="text-xs text-aura-text-dim mt-1">
+                  Add a <strong>Brave Search</strong> API key in Settings (free 2000/month) + an AI key to auto-generate stories from today's trending topics.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <StoryList stories={stories} onSelect={setSelectedStory} />
+      </div>
     </div>
   )
 }
